@@ -7,7 +7,6 @@ import { createBudgetsRouter } from './budgets.js';
 import { db, initSchema } from './db.js';
 import { createDashboardRouter } from './dashboard.js';
 import { createInsightsRouter, type InsightModel } from './insights.js';
-import { createReferenceRouter } from './reference.js';
 import { createTransactionsRouter } from './transactions.js';
 
 type AppOptions = {
@@ -40,7 +39,6 @@ export function createApp(
     });
   });
 
-  app.use('/api/reference', createReferenceRouter(database));
   app.use('/api/transactions', createTransactionsRouter(database));
   app.use('/api/dashboard', createDashboardRouter(database, options.today));
   app.use('/api/budgets', createBudgetsRouter(database));

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "seed": "tsx src/seed.ts",
-    "test": "tsx --test src/transactions.test.ts src/dashboard.test.ts src/budgets.test.ts src/insights.test.ts src/insights-model.test.ts src/backup.test.ts src/static.test.ts src/reference.test.ts",
+    "test": "tsx --test src/transactions.test.ts src/dashboard.test.ts src/budgets.test.ts src/insights.test.ts src/insights-model.test.ts src/backup.test.ts src/static.test.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },
