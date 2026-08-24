@@ -1,0 +1,1112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pocket Watch Dashboard Mockup</title>
+  <script>
+    (() => {
+      const param = new URLSearchParams(window.location.search).get("clawpilotTheme");
+      const theme =
+        param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <script>document.documentElement.setAttribute("data-theme", "dark");</script>
+  <style>
+    :root {
+      color-scheme: light;
+      --cp-bg: #f7f4ef;
+      --cp-bg-elevated: #fcfbf8;
+      --cp-surface: #ffffff;
+      --cp-surface-soft: #f5f5f5;
+      --cp-border: #dedede;
+      --cp-border-strong: #919191;
+      --cp-text: #242424;
+      --cp-text-muted: #5c5c5c;
+      --cp-text-soft: #6f6f6f;
+      --cp-accent: #b11f4b;
+      --cp-accent-hover: #9a1a41;
+      --cp-accent-soft: rgba(177, 31, 75, 0.08);
+      --cp-accent-fg: #ffffff;
+      --cp-success: #16a34a;
+      --cp-danger: #dc2626;
+      --cp-warning: #f59e0b;
+      --cp-link: #0078d4;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+      --cp-overlay: rgba(255, 255, 255, 0.8);
+      --cp-panel: rgba(255, 255, 255, 0.86);
+      --cp-panel-strong: rgba(255, 255, 255, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.55);
+      --cp-highlight: rgba(177, 31, 75, 0.12);
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --cp-bg: #3d3b3a;
+      --cp-bg-elevated: #343231;
+      --cp-surface: #292929;
+      --cp-surface-soft: #2e2e2e;
+      --cp-border: #474747;
+      --cp-border-strong: #5f5f5f;
+      --cp-text: #dedede;
+      --cp-text-muted: #919191;
+      --cp-text-soft: #b0b0b0;
+      --cp-accent: #fd8ea1;
+      --cp-accent-hover: #fb7b91;
+      --cp-accent-soft: rgba(253, 142, 161, 0.14);
+      --cp-accent-fg: #1a1a1a;
+      --cp-success: #4ade80;
+      --cp-danger: #f87171;
+      --cp-warning: #fbbf24;
+      --cp-link: #4da6ff;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+      --cp-overlay: rgba(41, 41, 41, 0.88);
+      --cp-panel: rgba(41, 41, 41, 0.72);
+      --cp-panel-strong: rgba(41, 41, 41, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.04);
+      --cp-highlight: rgba(253, 142, 161, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--cp-bg); }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--cp-bg);
+      color: var(--cp-text);
+      font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+      letter-spacing: 0;
+    }
+    button, input, select { font: inherit; }
+    button, select { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 2px solid var(--cp-accent);
+      outline-offset: 2px;
+    }
+
+    .app-shell { min-height: 100vh; }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0;
+      font-size: 18px;
+      font-weight: 750;
+    }
+    .brand-mark {
+      position: relative;
+      width: 29px;
+      height: 29px;
+      border: 2px solid var(--cp-accent);
+      border-radius: 50%;
+    }
+    .brand-mark::before {
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 3px;
+      top: -6px;
+      left: 8px;
+      background: var(--cp-accent);
+      border-radius: 0.625rem;
+    }
+    .brand-mark::after {
+      content: "$";
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: var(--cp-accent);
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .main { min-width: 0; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 15;
+      min-height: 78px;
+      display: flex;
+      align-items: center;
+      padding: 0 26px;
+      background: var(--cp-overlay);
+      border-bottom: 1px solid var(--cp-border);
+      backdrop-filter: blur(14px);
+    }
+    .topbar-inner {
+      width: min(1500px, 100%);
+      min-height: 78px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin: 0 auto;
+    }
+    .topbar-identity { display: flex; align-items: center; gap: 22px; }
+    .topbar-divider { width: 1px; height: 34px; background: var(--cp-border); }
+    .greeting h1 { margin: 0; font-size: 22px; font-weight: 730; }
+    .greeting p { margin: 4px 0 0; color: var(--cp-text-muted); font-size: 12px; }
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+    .month-control {
+      display: flex;
+      align-items: center;
+      height: 42px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+      overflow: hidden;
+    }
+    .month-control button {
+      width: 38px;
+      align-self: stretch;
+      border: 0;
+      background: transparent;
+      color: var(--cp-text-soft);
+      font-size: 18px;
+    }
+    .month-control button:hover { background: var(--cp-surface-soft); color: var(--cp-text); }
+    .month-label { min-width: 112px; text-align: center; font-size: 13px; font-weight: 650; }
+    .primary-button, .secondary-button, .text-button, .icon-button {
+      border-radius: 0.625rem;
+      font-weight: 700;
+    }
+    .primary-button {
+      min-height: 42px;
+      padding: 0 16px;
+      border: 1px solid var(--cp-accent);
+      background: var(--cp-accent);
+      color: var(--cp-accent-fg);
+    }
+    .primary-button:hover { background: var(--cp-accent-hover); }
+    .secondary-button {
+      min-height: 40px;
+      padding: 0 14px;
+      border: 1px solid var(--cp-border);
+      background: var(--cp-surface);
+      color: var(--cp-text);
+    }
+    .text-button { border: 0; background: transparent; color: var(--cp-link); }
+    .icon-button {
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--cp-border);
+      background: var(--cp-surface);
+      color: var(--cp-text);
+    }
+
+    .content { width: min(1500px, 100%); margin: 0 auto; padding: 20px 26px 112px; }
+    .insight-region { margin-bottom: 12px; }
+    .insight-strip {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+      min-height: 44px;
+      padding: 8px 4px;
+      border-bottom: 1px solid var(--cp-border);
+    }
+    .insight-mark {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--cp-accent-soft);
+      color: var(--cp-accent);
+      font-weight: 800;
+    }
+    .ticker-viewport { min-width: 0; overflow: hidden; }
+    .ticker-link {
+      width: 100%;
+      padding: 0;
+      overflow: hidden;
+      border: 0;
+      background: transparent;
+      color: var(--cp-text);
+      text-align: left;
+    }
+    .ticker-track {
+      display: flex;
+      width: max-content;
+      animation: insight-ticker 20s linear infinite;
+      will-change: transform;
+    }
+    .ticker-link:hover .ticker-track,
+    .ticker-link:focus-visible .ticker-track { animation-play-state: paused; }
+    .ticker-item {
+      flex: 0 0 auto;
+      padding-right: 56px;
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+    .ticker-item strong { margin-right: 5px; }
+    .ticker-item span { color: var(--cp-text-soft); }
+    .insight-detail {
+      display: none;
+      padding: 10px 42px 12px;
+      border-bottom: 1px solid var(--cp-border);
+      color: var(--cp-text-soft);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .insight-detail.open { display: block; }
+    .insight-detail strong { color: var(--cp-text); }
+    @keyframes insight-ticker {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+    .monthly-bar, .panel {
+      background: var(--cp-surface);
+      border: 1px solid var(--cp-border);
+      border-radius: 16px;
+      box-shadow: 0 0 2px var(--cp-sheen);
+    }
+    .monthly-bar {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      min-height: 106px;
+      overflow: hidden;
+    }
+    .monthly-stat { position: relative; min-width: 0; padding: 17px 20px 22px; }
+    .monthly-stat + .monthly-stat { border-left: 1px solid var(--cp-border); }
+    .summary-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .eyebrow { color: var(--cp-text-muted); font-size: 12px; font-weight: 600; }
+    .summary-symbol {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--cp-surface-soft);
+      color: var(--cp-text-soft);
+      font-weight: 800;
+    }
+    .monthly-stat.success .summary-symbol { background: var(--cp-highlight); color: var(--cp-success); }
+    .monthly-stat.attention .summary-symbol { background: var(--cp-accent-soft); color: var(--cp-accent); }
+    .summary-value { margin: 8px 0 3px; font-size: clamp(22px, 1.7vw, 28px); font-weight: 760; }
+    .summary-note { display: flex; align-items: center; gap: 6px; color: var(--cp-text-muted); font-size: 12px; }
+    .positive { color: var(--cp-success); font-weight: 700; }
+    .negative { color: var(--cp-danger); font-weight: 700; }
+    .monthly-progress {
+      position: absolute;
+      inset: auto 0 0;
+      height: 4px;
+      background: var(--cp-surface-soft);
+    }
+    .monthly-progress span { display: block; width: 65.8%; height: 100%; background: var(--cp-accent); }
+
+    .panel { min-width: 0; }
+    .transactions-panel { margin-top: 14px; }
+    .panel-header {
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--cp-border);
+    }
+    .panel-title { margin: 0; font-size: 15px; font-weight: 730; }
+    .panel-subtitle { margin: 3px 0 0; color: var(--cp-text-muted); font-size: 11px; }
+    .transaction-tools { display: flex; align-items: center; gap: 8px; }
+    .search {
+      width: 180px;
+      height: 34px;
+      padding: 0 10px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface-soft);
+      color: var(--cp-text);
+    }
+    .table-wrap { overflow: visible; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th {
+      padding: 10px 14px;
+      color: var(--cp-text-muted);
+      font-size: 10px;
+      font-weight: 700;
+      text-align: left;
+      text-transform: uppercase;
+    }
+    td { height: 58px; padding: 8px 14px; border-top: 1px solid var(--cp-border); font-size: 13px; }
+    th:last-child, td:last-child { text-align: right; }
+    .merchant { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .merchant-badge {
+      flex: 0 0 auto;
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 0.625rem;
+      background: var(--cp-surface-soft);
+      color: var(--cp-accent);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .merchant-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }
+    .mobile-meta { display: none; margin-top: 3px; color: var(--cp-text-muted); font-size: 10px; }
+    .category-select {
+      max-width: 150px;
+      height: 30px;
+      padding: 0 8px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface-soft);
+      color: var(--cp-text-soft);
+      font-size: 11px;
+    }
+    .card-name, .date { color: var(--cp-text-muted); font-size: 12px; }
+    .amount { font-variant-numeric: tabular-nums; font-weight: 730; }
+    .row-actions { position: relative; display: inline-block; margin-left: 6px; }
+    .row-menu {
+      position: absolute;
+      z-index: 12;
+      top: 35px;
+      right: 0;
+      width: 138px;
+      display: none;
+      padding: 6px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-panel-strong);
+      box-shadow: var(--cp-shadow);
+      text-align: left;
+    }
+    .row-menu.open { display: grid; }
+    .row-menu button { padding: 8px; border: 0; background: transparent; color: var(--cp-text); text-align: left; border-radius: 0.625rem; }
+    .row-menu button:hover { background: var(--cp-surface-soft); }
+    .row-menu .delete { color: var(--cp-danger); }
+
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+      gap: 14px;
+      margin-top: 14px;
+    }
+    .spending-body { display: grid; grid-template-columns: 180px 1fr; gap: 14px; align-items: center; padding: 20px; }
+    .donut {
+      width: 156px;
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      margin: auto;
+      border-radius: 50%;
+      background: conic-gradient(var(--cp-accent) 0 34%, var(--cp-link) 34% 55%, var(--cp-warning) 55% 71%, var(--cp-success) 71% 84%, var(--cp-danger) 84% 93%, var(--cp-border-strong) 93% 100%);
+    }
+    .donut-hole {
+      width: 104px;
+      aspect-ratio: 1;
+      display: grid;
+      place-content: center;
+      border-radius: 50%;
+      background: var(--cp-surface);
+      text-align: center;
+    }
+    .donut-hole strong { font-size: 19px; }
+    .donut-hole span { margin-top: 2px; color: var(--cp-text-muted); font-size: 10px; }
+    .ranked-list { display: grid; gap: 11px; }
+    .rank-row { display: grid; grid-template-columns: 10px 1fr auto auto; align-items: center; gap: 8px; font-size: 11px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cp-border-strong); }
+    .dot.accent { background: var(--cp-accent); }
+    .dot.link { background: var(--cp-link); }
+    .dot.warning { background: var(--cp-warning); }
+    .dot.success { background: var(--cp-success); }
+    .dot.danger { background: var(--cp-danger); }
+    .rank-value { font-weight: 700; }
+    .rank-pct { min-width: 34px; color: var(--cp-text-muted); text-align: right; }
+
+    .budget-list { display: grid; gap: 15px; padding: 18px; }
+    .budget-row { display: grid; gap: 7px; }
+    .budget-copy { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: baseline; }
+    .budget-copy strong { font-size: 12px; }
+    .budget-copy span { color: var(--cp-text-muted); font-size: 10px; }
+    .budget-meta { text-align: right; }
+    .budget-meta b { color: var(--cp-text-soft); font-size: 11px; }
+    .progress { height: 6px; overflow: hidden; border-radius: 0.625rem; background: var(--cp-surface-soft); }
+    .progress span { display: block; height: 100%; border-radius: inherit; background: var(--cp-success); }
+    .progress .warn { background: var(--cp-warning); }
+    .progress .danger { background: var(--cp-danger); }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+    .segmented { display: flex; padding: 3px; border-radius: 0.625rem; background: var(--cp-surface-soft); }
+    .segmented button { min-height: 30px; padding: 0 10px; border: 0; border-radius: 0.625rem; background: transparent; color: var(--cp-text-muted); font-size: 11px; }
+    .segmented button.active { background: var(--cp-surface); color: var(--cp-text); font-weight: 700; }
+    .chart-area { position: relative; height: 250px; padding: 18px; }
+    .chart-area svg { width: 100%; height: 180px; overflow: visible; }
+    .grid-line { stroke: var(--cp-border); stroke-width: 1; }
+    .budget-line { stroke: var(--cp-warning); stroke-width: 1.5; stroke-dasharray: 5 5; }
+    .spend-line { fill: none; stroke: var(--cp-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .income-line { fill: none; stroke: var(--cp-success); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .expense-line { fill: none; stroke: var(--cp-danger); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .chart-labels { display: flex; justify-content: space-between; color: var(--cp-text-muted); font-size: 10px; }
+    .chart-legend { display: flex; gap: 14px; margin-bottom: 8px; color: var(--cp-text-muted); font-size: 10px; }
+    .chart-legend span { display: flex; align-items: center; gap: 5px; }
+    .chart-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--cp-accent); }
+    .chart-legend .income { background: var(--cp-success); }
+    .chart-legend .expense { background: var(--cp-danger); }
+    .chart-legend .budget { background: var(--cp-warning); }
+
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    label span { display: block; margin-bottom: 5px; color: var(--cp-text-muted); font-size: 10px; font-weight: 650; }
+    input, select {
+      width: 100%;
+      height: 38px;
+      padding: 0 10px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface-soft);
+      color: var(--cp-text);
+    }
+    .decision-result {
+      display: none;
+      padding: 12px;
+      border: 1px solid var(--cp-success);
+      border-radius: 0.625rem;
+      background: var(--cp-surface-soft);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .decision-result.visible { display: block; }
+    .decision-result strong { color: var(--cp-success); }
+    .floating-add {
+      position: fixed;
+      z-index: 35;
+      left: 50%;
+      bottom: 10px;
+      min-height: 46px;
+      padding: 0 18px;
+      border: 1px solid var(--cp-accent);
+      border-radius: 0.625rem;
+      background: var(--cp-accent);
+      color: var(--cp-accent-fg);
+      box-shadow: var(--cp-shadow);
+      transform: translateX(-50%);
+      font-weight: 750;
+    }
+    .floating-add:hover { background: var(--cp-accent-hover); }
+    .scrim {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: none;
+      background: var(--cp-overlay);
+    }
+    .scrim.open { display: block; }
+    .drawer {
+      position: fixed;
+      left: 50%;
+      bottom: 12px;
+      z-index: 45;
+      width: min(600px, calc(100% - 24px));
+      max-height: min(480px, calc(100vh - 90px));
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translate(-50%, calc(100% + 32px));
+      transition: transform 180ms ease;
+      background: var(--cp-bg-elevated);
+      border: 1px solid var(--cp-border);
+      border-radius: 16px;
+      box-shadow: var(--cp-shadow);
+    }
+    .drawer.open { transform: translate(-50%, 0); }
+    .drawer-header { display: flex; justify-content: space-between; align-items: center; min-height: 58px; padding: 10px 16px; border-bottom: 1px solid var(--cp-border); }
+    .drawer-header h2 { margin: 0; font-size: 18px; }
+    .drawer-body { flex: 1; display: grid; align-content: start; gap: 10px; padding: 14px 16px; overflow-y: auto; }
+    .amount-input { height: 46px; font-size: 22px; font-weight: 750; }
+    .chip-label { color: var(--cp-text-muted); font-size: 11px; font-weight: 650; }
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .chip { min-height: 36px; padding: 0 11px; border: 1px solid var(--cp-border); border-radius: 0.625rem; background: var(--cp-surface); color: var(--cp-text-soft); font-size: 11px; }
+    .chip.selected { border-color: var(--cp-accent); background: var(--cp-accent-soft); color: var(--cp-accent); font-weight: 700; }
+    .drawer-footer { display: flex; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--cp-border); }
+    .drawer-footer button { flex: 1; }
+    .toast {
+      position: fixed;
+      z-index: 60;
+      right: 22px;
+      bottom: 22px;
+      display: none;
+      padding: 12px 16px;
+      border: 1px solid var(--cp-success);
+      border-radius: 0.625rem;
+      background: var(--cp-panel-strong);
+      color: var(--cp-text);
+      box-shadow: var(--cp-shadow);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .toast.show { display: block; }
+
+    .workspace-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      display: none;
+      place-items: center;
+      padding: 28px;
+      background: var(--cp-overlay);
+      backdrop-filter: blur(8px);
+    }
+    .workspace-backdrop.open { display: grid; }
+    .workspace-modal {
+      width: min(1180px, 100%);
+      max-height: calc(100vh - 56px);
+      display: none;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      overflow: hidden;
+      border: 1px solid var(--cp-border);
+      border-radius: 16px;
+      background: var(--cp-bg-elevated);
+      box-shadow: var(--cp-shadow);
+    }
+    .workspace-modal.open { display: grid; }
+    .workspace-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--cp-border);
+    }
+    .workspace-header h2 { margin: 0; font-size: 20px; }
+    .workspace-header p { margin: 4px 0 0; color: var(--cp-text-muted); font-size: 11px; }
+    .workspace-actions { display: flex; align-items: center; gap: 8px; }
+    .workspace-body { min-height: 0; overflow-y: auto; padding: 16px 20px 22px; }
+    .workspace-filters { display: grid; grid-template-columns: minmax(220px, 1fr) 180px 180px; gap: 10px; margin-bottom: 14px; }
+    .workspace-table { border: 1px solid var(--cp-border); border-radius: 0.625rem; overflow: hidden; }
+    .workspace-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 20px;
+      border-top: 1px solid var(--cp-border);
+      color: var(--cp-text-muted);
+      font-size: 11px;
+    }
+    .budget-workspace-summary {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 16px;
+      padding: 14px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+    }
+    .budget-workspace-summary strong { display: block; margin-top: 4px; font-size: 24px; }
+    .budget-editor { display: grid; gap: 8px; }
+    .budget-editor-row {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) 160px 130px 40px;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+    }
+    .budget-editor-row strong { font-size: 12px; }
+    .budget-editor-row small { display: block; margin-top: 3px; color: var(--cp-text-muted); }
+    .danger-button { color: var(--cp-danger); }
+    .nested-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: none;
+      place-items: center;
+      padding: 24px;
+      background: var(--cp-overlay);
+      backdrop-filter: blur(5px);
+    }
+    .nested-layer.open { display: grid; }
+    .nested-dialog {
+      width: min(540px, 100%);
+      max-height: calc(100vh - 48px);
+      display: none;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      overflow: hidden;
+      border: 1px solid var(--cp-border-strong);
+      border-radius: 16px;
+      background: var(--cp-bg-elevated);
+      box-shadow: var(--cp-shadow);
+    }
+    .nested-dialog.open { display: grid; }
+    .nested-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--cp-border);
+    }
+    .nested-header h3 { margin: 0; font-size: 17px; }
+    .nested-header p { margin: 3px 0 0; color: var(--cp-text-muted); font-size: 10px; }
+    .nested-form { display: grid; gap: 12px; padding: 16px 18px; overflow-y: auto; }
+    .nested-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--cp-border); }
+
+    @media (max-width: 1080px) {
+      .analysis-grid, .bottom-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 720px) {
+      .topbar { min-height: auto; padding: 12px 14px; }
+      .topbar-inner { min-height: auto; }
+      .brand-name, .topbar-divider { display: none; }
+      .topbar-identity { gap: 10px; }
+      .greeting h1 { font-size: 17px; }
+      .greeting p { display: none; }
+      .month-control { height: 38px; }
+      .month-label { min-width: 96px; font-size: 11px; }
+      .content { padding: 8px 12px 104px; }
+      .insight-region { margin-bottom: 8px; }
+      .insight-strip { padding-inline: 2px; }
+      .insight-detail { padding-inline: 38px 4px; }
+      .monthly-bar { min-height: 96px; }
+      .monthly-stat { padding: 13px 10px 18px; }
+      .summary-symbol { display: none; }
+      .summary-value { margin-top: 7px; font-size: 19px; }
+      .summary-note { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+      .panel-header { padding: 12px 14px; }
+      .transaction-tools .search { display: none; }
+      table { table-layout: fixed; }
+      th { display: none; }
+      td { height: 62px; padding: 8px 10px; }
+      td:nth-child(1) { width: 55%; }
+      td:nth-child(2) { width: 0; padding: 0; }
+      td:nth-child(3), td:nth-child(4) { display: none; }
+      td:last-child { width: 45%; }
+      .category-select { display: none; }
+      .mobile-meta { display: block; }
+      .merchant-badge { width: 32px; height: 32px; }
+      .amount { font-size: 12px; }
+      .spending-body { grid-template-columns: 132px 1fr; padding: 14px; }
+      .donut { width: 126px; }
+      .donut-hole { width: 82px; }
+      .donut-hole strong { font-size: 15px; }
+      .rank-row { grid-template-columns: 8px 1fr auto; gap: 6px; }
+      .rank-pct { display: none; }
+      .analysis-grid, .bottom-grid { gap: 10px; margin-top: 10px; }
+      .chart-area { height: 220px; padding: 14px; }
+      .chart-area svg { height: 155px; }
+      .floating-add {
+        left: 50%;
+        bottom: 12px;
+        width: 54px;
+        min-height: 54px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 0;
+      }
+      .floating-add::before { content: "+"; font-size: 26px; font-weight: 500; }
+      .drawer {
+        bottom: 0;
+        width: 100%;
+        max-height: 62vh;
+        border-right: 0;
+        border-bottom: 0;
+        border-left: 0;
+        border-radius: 16px 16px 0 0;
+        transform: translate(-50%, 100%);
+      }
+      .workspace-backdrop { padding: 0; }
+      .workspace-modal { width: 100%; max-height: 100vh; height: 100vh; border: 0; border-radius: 0; }
+      .workspace-filters { grid-template-columns: 1fr; }
+      .budget-editor-row { grid-template-columns: 1fr 110px 40px; }
+      .budget-editor-row .budget-status { display: none; }
+      .nested-layer { align-items: end; padding: 0; }
+      .nested-dialog { width: 100%; max-height: 78vh; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 16px 16px 0 0; }
+      .toast { right: 12px; bottom: 82px; left: 12px; text-align: center; }
+    }
+
+    @media (max-width: 410px) {
+      .topbar { gap: 8px; }
+      .greeting h1 { font-size: 15px; }
+      .month-control button { width: 30px; }
+      .month-label { min-width: 78px; }
+      .monthly-stat { padding-inline: 8px; }
+      .eyebrow { font-size: 10px; }
+      .summary-value { font-size: 17px; }
+      .spending-body { grid-template-columns: 1fr; }
+      .ranked-list { width: 100%; }
+      .field-row { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ticker-track { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div class="topbar-identity">
+            <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span class="brand-name">Pocket Watch</span></div>
+            <span class="topbar-divider" aria-hidden="true"></span>
+            <div class="greeting">
+              <h1>Good morning, Alex</h1>
+              <p>Your latest purchases are categorized and ready to review.</p>
+            </div>
+          </div>
+          <div class="top-actions">
+            <div class="month-control" aria-label="Selected month">
+              <button id="previousMonth" type="button" aria-label="Previous month">&#8249;</button>
+              <span class="month-label" id="monthLabel">August 2026</span>
+              <button id="nextMonth" type="button" aria-label="Next month">&#8250;</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="insight-region" aria-label="Current insight">
+          <div class="insight-strip">
+            <span class="insight-mark" aria-hidden="true">&#10022;</span>
+            <div class="ticker-viewport">
+              <button class="ticker-link" id="insightTicker" type="button" aria-expanded="false" aria-controls="insightDetail">
+                <span class="ticker-track">
+                  <span class="ticker-item"><strong>Dining is driving this month's change.</strong><span>You have spent $86.10 more than at this point in July. Tap for details.</span></span>
+                  <span class="ticker-item" aria-hidden="true"><strong>Dining is driving this month's change.</strong><span>You have spent $86.10 more than at this point in July. Tap for details.</span></span>
+                </span>
+              </button>
+            </div>
+          </div>
+          <div class="insight-detail" id="insightDetail"><strong>Why this matters:</strong> Two weekend dining purchases account for $58.40 of the increase. Dining has $52.90 left in its August allocation.</div>
+        </section>
+
+        <section class="monthly-bar" aria-label="Monthly summary">
+          <article class="monthly-stat attention">
+            <div class="summary-top"><span class="eyebrow">Spent this month</span><span class="summary-symbol">$</span></div>
+            <div class="summary-value">$1,315.28</div>
+            <div class="summary-note"><span class="negative">65.8%</span> of your $2,000 budget</div>
+          </article>
+          <article class="monthly-stat success">
+            <div class="summary-top"><span class="eyebrow">Budget remaining</span><span class="summary-symbol">&#10003;</span></div>
+            <div class="summary-value">$684.72</div>
+            <div class="summary-note"><span class="positive">On pace</span> for 12 days remaining</div>
+          </article>
+          <article class="monthly-stat">
+            <div class="summary-top"><span class="eyebrow">Compared with July</span><span class="summary-symbol">&#8595;</span></div>
+            <div class="summary-value">-$92.40</div>
+            <div class="summary-note"><span class="positive">6.6% less</span> than this point last month</div>
+          </article>
+          <div class="monthly-progress" aria-hidden="true"><span></span></div>
+        </section>
+
+        <section class="panel transactions-panel">
+          <div class="panel-header">
+            <div><h2 class="panel-title">Recent transactions</h2><p class="panel-subtitle">Every purchase stays tied to a category and card.</p></div>
+            <div class="transaction-tools"><input class="search" type="search" aria-label="Search transactions" placeholder="Search transactions"><button class="text-button" type="button" data-open-workspace="transactions">View all</button></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th style="width: 31%">Merchant</th><th style="width: 24%">Category</th><th style="width: 20%">Card</th><th style="width: 13%">Date</th><th style="width: 12%">Amount</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><div class="merchant"><span class="merchant-badge">WF</span><div><div class="merchant-name">Whole Foods Market</div><div class="mobile-meta">Groceries &middot; Today</div></div></div></td>
+                  <td><select class="category-select" aria-label="Category for Whole Foods Market"><option selected>Groceries</option><option>Dining</option><option>Shopping</option><option>Other</option></select></td>
+                  <td class="card-name">Freedom &middot;&middot; 1842</td><td class="date">Today</td>
+                  <td><span class="amount">-$78.45</span><span class="row-actions"><button class="icon-button menu-trigger" type="button" aria-label="Actions for Whole Foods Market">&#8942;</button><span class="row-menu"><button type="button">Edit</button><button type="button">Duplicate</button><button class="delete" type="button">Delete</button></span></span></td>
+                </tr>
+                <tr>
+                  <td><div class="merchant"><span class="merchant-badge">TC</span><div><div class="merchant-name">Taco City</div><div class="mobile-meta">Dining &middot; Yesterday</div></div></div></td>
+                  <td><select class="category-select" aria-label="Category for Taco City"><option>Groceries</option><option selected>Dining</option><option>Shopping</option><option>Other</option></select></td>
+                  <td class="card-name">Sapphire &middot;&middot; 4408</td><td class="date">Yesterday</td>
+                  <td><span class="amount">-$34.20</span><span class="row-actions"><button class="icon-button menu-trigger" type="button" aria-label="Actions for Taco City">&#8942;</button><span class="row-menu"><button type="button">Edit</button><button type="button">Duplicate</button><button class="delete" type="button">Delete</button></span></span></td>
+                </tr>
+                <tr>
+                  <td><div class="merchant"><span class="merchant-badge">AM</span><div><div class="merchant-name">Amazon</div><div class="mobile-meta">Amazon &middot; Aug 17</div></div></div></td>
+                  <td><select class="category-select" aria-label="Category for Amazon"><option>Groceries</option><option>Dining</option><option selected>Amazon</option><option>Other</option></select></td>
+                  <td class="card-name">Venture X &middot;&middot; 9011</td><td class="date">Aug 17</td>
+                  <td><span class="amount">-$61.84</span><span class="row-actions"><button class="icon-button menu-trigger" type="button" aria-label="Actions for Amazon">&#8942;</button><span class="row-menu"><button type="button">Edit</button><button type="button">Duplicate</button><button class="delete" type="button">Delete</button></span></span></td>
+                </tr>
+                <tr>
+                  <td><div class="merchant"><span class="merchant-badge">SH</span><div><div class="merchant-name">Shell</div><div class="mobile-meta">Transport / Gas &middot; Aug 16</div></div></div></td>
+                  <td><select class="category-select" aria-label="Category for Shell"><option>Groceries</option><option selected>Transport / Gas</option><option>Shopping</option><option>Other</option></select></td>
+                  <td class="card-name">Custom Cash &middot;&middot; 6620</td><td class="date">Aug 16</td>
+                  <td><span class="amount">-$45.20</span><span class="row-actions"><button class="icon-button menu-trigger" type="button" aria-label="Actions for Shell">&#8942;</button><span class="row-menu"><button type="button">Edit</button><button type="button">Duplicate</button><button class="delete" type="button">Delete</button></span></span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="analysis-grid">
+          <section class="panel">
+            <div class="panel-header"><div><h2 class="panel-title">Where your money went</h2><p class="panel-subtitle">Ranked by spending in August.</p></div><button class="text-button" type="button">Details</button></div>
+            <div class="spending-body">
+              <div class="donut" role="img" aria-label="Dining 34 percent, groceries 21 percent, shopping 16 percent, transport 13 percent, entertainment 9 percent, other 7 percent"><div class="donut-hole"><strong>$1,315</strong><span>Total spent</span></div></div>
+              <div class="ranked-list">
+                <div class="rank-row"><span class="dot accent"></span><span>Dining</span><span class="rank-value">$447.10</span><span class="rank-pct">34%</span></div>
+                <div class="rank-row"><span class="dot link"></span><span>Groceries</span><span class="rank-value">$276.50</span><span class="rank-pct">21%</span></div>
+                <div class="rank-row"><span class="dot warning"></span><span>Shopping</span><span class="rank-value">$210.45</span><span class="rank-pct">16%</span></div>
+                <div class="rank-row"><span class="dot success"></span><span>Transport / Gas</span><span class="rank-value">$171.00</span><span class="rank-pct">13%</span></div>
+                <div class="rank-row"><span class="dot danger"></span><span>Entertainment</span><span class="rank-value">$118.38</span><span class="rank-pct">9%</span></div>
+                <div class="rank-row"><span class="dot"></span><span>Other</span><span class="rank-value">$91.85</span><span class="rank-pct">7%</span></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header"><div><h2 class="panel-title">Category budgets</h2><p class="panel-subtitle">Current allocation compared with July.</p></div><button class="text-button" type="button" data-open-workspace="budgets">Edit budgets</button></div>
+            <div class="budget-list">
+              <div class="budget-row"><div class="budget-copy"><div><strong>Dining</strong> <span>July $361</span></div><div class="budget-meta"><b>$447 / $500</b> <span>89%</span></div></div><div class="progress"><span class="warn" style="width:89%"></span></div></div>
+              <div class="budget-row"><div class="budget-copy"><div><strong>Groceries</strong> <span>July $302</span></div><div class="budget-meta"><b>$277 / $400</b> <span>69%</span></div></div><div class="progress"><span style="width:69%"></span></div></div>
+              <div class="budget-row"><div class="budget-copy"><div><strong>Shopping</strong> <span>July $189</span></div><div class="budget-meta"><b>$210 / $250</b> <span>84%</span></div></div><div class="progress"><span class="warn" style="width:84%"></span></div></div>
+              <div class="budget-row"><div class="budget-copy"><div><strong>Transport / Gas</strong> <span>July $176</span></div><div class="budget-meta"><b>$171 / $250</b> <span>68%</span></div></div><div class="progress"><span style="width:68%"></span></div></div>
+              <div class="budget-row"><div class="budget-copy"><div><strong>Entertainment</strong> <span>July $92</span></div><div class="budget-meta"><b>$118 / $100</b> <span>118%</span></div></div><div class="progress"><span class="danger" style="width:100%"></span></div></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="bottom-grid">
+          <section class="panel">
+            <div class="panel-header">
+              <div><h2 class="panel-title">Monthly trend</h2><p class="panel-subtitle" id="trendSubtitle">Cumulative spending against your budget pace.</p></div>
+              <div class="segmented" aria-label="Trend view"><button class="active trend-toggle" type="button" data-mode="pace">Spending pace</button><button class="trend-toggle" type="button" data-mode="cash">Cash flow</button></div>
+            </div>
+            <div class="chart-area">
+              <div class="chart-legend" id="chartLegend"><span><i></i>Spent</span><span><i class="budget"></i>Budget pace</span></div>
+              <svg viewBox="0 0 700 180" preserveAspectRatio="none" role="img" aria-label="Spending trend chart">
+                <line class="grid-line" x1="0" y1="20" x2="700" y2="20"></line><line class="grid-line" x1="0" y1="80" x2="700" y2="80"></line><line class="grid-line" x1="0" y1="140" x2="700" y2="140"></line>
+                <polyline id="budgetLine" class="budget-line" points="0,170 700,20"></polyline>
+                <polyline id="spendLine" class="spend-line" points="0,170 55,164 110,151 165,143 220,126 275,115 330,100 385,91 440,72 495,64 550,54 605,38 660,31 700,26"></polyline>
+                <polyline id="incomeLine" class="income-line" points="0,158 95,158 100,105 310,105 315,54 525,54 530,20 700,20" hidden></polyline>
+                <polyline id="expenseLine" class="expense-line" points="0,168 55,163 110,153 165,148 220,138 275,130 330,121 385,116 440,104 495,99 550,92 605,82 660,77 700,73" hidden></polyline>
+              </svg>
+              <div class="chart-labels"><span>Aug 1</span><span>Aug 8</span><span>Aug 15</span><span>Aug 22</span><span>Aug 31</span></div>
+            </div>
+          </section>
+
+        </div>
+      </main>
+    </div>
+
+    <button class="floating-add" type="button" data-open-drawer aria-label="Add transaction">+ Add transaction</button>
+  </div>
+
+  <div class="workspace-backdrop" id="workspaceBackdrop">
+    <section class="workspace-modal" id="transactionsWorkspace" role="dialog" aria-modal="true" aria-labelledby="transactionsWorkspaceTitle">
+      <header class="workspace-header">
+        <div><h2 id="transactionsWorkspaceTitle">All transactions</h2><p>Review, recategorize, edit, duplicate, or delete every purchase.</p></div>
+        <div class="workspace-actions"><button class="primary-button" type="button" data-open-nested="transaction">+ Add transaction</button><button class="icon-button" type="button" data-close-workspace aria-label="Close all transactions">&times;</button></div>
+      </header>
+      <div class="workspace-body">
+        <div class="workspace-filters"><input type="search" placeholder="Search merchant or amount" aria-label="Search all transactions"><select aria-label="Filter transaction category"><option>All categories</option><option>Dining</option><option>Groceries</option><option>Shopping</option></select><select aria-label="Filter transaction card"><option>All cards</option><option>Freedom</option><option>Sapphire</option><option>Venture X</option></select></div>
+        <div class="workspace-table">
+          <table>
+            <thead><tr><th>Merchant</th><th>Category</th><th>Card</th><th>Date</th><th>Amount</th></tr></thead>
+            <tbody>
+              <tr><td><div class="merchant"><span class="merchant-badge">WF</span><strong>Whole Foods Market</strong></div></td><td><select class="category-select"><option selected>Groceries</option><option>Dining</option></select></td><td class="card-name">Freedom &middot;&middot; 1842</td><td class="date">Aug 19</td><td><span class="amount">-$78.45</span> <button class="icon-button" type="button" aria-label="Edit Whole Foods Market">&#9998;</button></td></tr>
+              <tr><td><div class="merchant"><span class="merchant-badge">TC</span><strong>Taco City</strong></div></td><td><select class="category-select"><option selected>Dining</option><option>Groceries</option></select></td><td class="card-name">Sapphire &middot;&middot; 4408</td><td class="date">Aug 18</td><td><span class="amount">-$34.20</span> <button class="icon-button" type="button" aria-label="Edit Taco City">&#9998;</button></td></tr>
+              <tr><td><div class="merchant"><span class="merchant-badge">AM</span><strong>Amazon</strong></div></td><td><select class="category-select"><option selected>Amazon</option><option>Shopping</option></select></td><td class="card-name">Venture X &middot;&middot; 9011</td><td class="date">Aug 17</td><td><span class="amount">-$61.84</span> <button class="icon-button" type="button" aria-label="Edit Amazon">&#9998;</button></td></tr>
+              <tr><td><div class="merchant"><span class="merchant-badge">SH</span><strong>Shell</strong></div></td><td><select class="category-select"><option selected>Transport / Gas</option><option>Other</option></select></td><td class="card-name">Custom Cash &middot;&middot; 6620</td><td class="date">Aug 16</td><td><span class="amount">-$45.20</span> <button class="icon-button" type="button" aria-label="Edit Shell">&#9998;</button></td></tr>
+              <tr><td><div class="merchant"><span class="merchant-badge">NF</span><strong>Netflix</strong></div></td><td><select class="category-select"><option selected>Entertainment</option><option>Other</option></select></td><td class="card-name">Freedom &middot;&middot; 1842</td><td class="date">Aug 15</td><td><span class="amount">-$15.99</span> <button class="icon-button" type="button" aria-label="Edit Netflix">&#9998;</button></td></tr>
+              <tr><td><div class="merchant"><span class="merchant-badge">CV</span><strong>CVS Pharmacy</strong></div></td><td><select class="category-select"><option selected>Health</option><option>Other</option></select></td><td class="card-name">Freedom &middot;&middot; 1842</td><td class="date">Aug 14</td><td><span class="amount">-$28.63</span> <button class="icon-button" type="button" aria-label="Edit CVS Pharmacy">&#9998;</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <footer class="workspace-footer"><span>Showing 6 of 24 transactions</span><button class="secondary-button" type="button">Load more</button></footer>
+    </section>
+
+    <section class="workspace-modal" id="budgetsWorkspace" role="dialog" aria-modal="true" aria-labelledby="budgetsWorkspaceTitle">
+      <header class="workspace-header">
+        <div><h2 id="budgetsWorkspaceTitle">Manage August budgets</h2><p>Create and adjust allocations while keeping the $2,000 monthly total in view.</p></div>
+        <button class="icon-button" type="button" data-close-workspace aria-label="Close budget manager">&times;</button>
+      </header>
+      <div class="workspace-body">
+        <div class="budget-workspace-summary"><div><span class="eyebrow">Monthly budget</span><strong>$2,000.00</strong></div><div><span class="positive">$2,000 allocated</span><br><small>Nothing left unassigned</small></div></div>
+        <div class="budget-editor">
+          <div class="budget-editor-row"><div><strong>Dining</strong><small>$447.10 spent</small></div><label><span>Budget</span><input type="number" value="500"></label><span class="budget-status positive">$52.90 left</span><button class="icon-button danger-button" type="button" aria-label="Delete Dining budget">&times;</button></div>
+          <div class="budget-editor-row"><div><strong>Groceries</strong><small>$276.50 spent</small></div><label><span>Budget</span><input type="number" value="400"></label><span class="budget-status positive">$123.50 left</span><button class="icon-button danger-button" type="button" aria-label="Delete Groceries budget">&times;</button></div>
+          <div class="budget-editor-row"><div><strong>Shopping</strong><small>$210.45 spent</small></div><label><span>Budget</span><input type="number" value="250"></label><span class="budget-status positive">$39.55 left</span><button class="icon-button danger-button" type="button" aria-label="Delete Shopping budget">&times;</button></div>
+          <div class="budget-editor-row"><div><strong>Transport / Gas</strong><small>$171.00 spent</small></div><label><span>Budget</span><input type="number" value="250"></label><span class="budget-status positive">$79.00 left</span><button class="icon-button danger-button" type="button" aria-label="Delete Transport budget">&times;</button></div>
+          <div class="budget-editor-row"><div><strong>Entertainment</strong><small>$118.38 spent</small></div><label><span>Budget</span><input type="number" value="100"></label><span class="budget-status negative">$18.38 over</span><button class="icon-button danger-button" type="button" aria-label="Delete Entertainment budget">&times;</button></div>
+        </div>
+      </div>
+      <footer class="workspace-footer"><button class="secondary-button" type="button" data-open-nested="budget">+ Create category budget</button><div class="workspace-actions"><button class="secondary-button" type="button" data-close-workspace>Cancel</button><button class="primary-button" type="button" data-close-workspace>Save budgets</button></div></footer>
+    </section>
+  </div>
+
+  <div class="nested-layer" id="nestedLayer">
+    <section class="nested-dialog" id="transactionNested" role="dialog" aria-modal="true" aria-labelledby="transactionNestedTitle">
+      <header class="nested-header"><div><h3 id="transactionNestedTitle">Add transaction</h3><p>The transaction list will stay open behind this dialog.</p></div><button class="icon-button" type="button" data-close-nested aria-label="Close nested transaction form">&times;</button></header>
+      <form class="nested-form" id="nestedTransactionForm">
+        <div class="field-row"><label><span>Amount</span><input type="number" min="0" step="0.01" placeholder="$0.00" required></label><label><span>Date</span><input type="date" value="2026-08-20" required></label></div>
+        <label><span>Merchant or description</span><input type="text" placeholder="Where did you spend?" required></label>
+        <div class="field-row"><label><span>Category</span><select><option>Dining</option><option>Groceries</option><option>Shopping</option><option>Transport / Gas</option><option>Other</option></select></label><label><span>Card</span><select><option>Freedom</option><option>Sapphire</option><option>Custom Cash</option><option>Venture X</option></select></label></div>
+      </form>
+      <footer class="nested-footer"><button class="secondary-button" type="button" data-close-nested>Cancel</button><button class="primary-button" type="submit" form="nestedTransactionForm">Add transaction</button></footer>
+    </section>
+
+    <section class="nested-dialog" id="budgetNested" role="dialog" aria-modal="true" aria-labelledby="budgetNestedTitle">
+      <header class="nested-header"><div><h3 id="budgetNestedTitle">Create category budget</h3><p>Add another allocation within the $2,000 monthly total.</p></div><button class="icon-button" type="button" data-close-nested aria-label="Close create category budget form">&times;</button></header>
+      <form class="nested-form" id="nestedBudgetForm">
+        <label><span>Category</span><select required><option value="">Choose a category</option><option>Bills / Utilities</option><option>Health</option><option>Traveling</option><option>Gym</option><option>Family Stuff</option><option>Other</option></select></label>
+        <label><span>Monthly budget amount</span><input type="number" min="1" step="1" placeholder="$0" required></label>
+        <div class="decision-result visible"><strong>$0 remains unassigned.</strong><br>Reduce an existing allocation before adding another category budget.</div>
+      </form>
+      <footer class="nested-footer"><button class="secondary-button" type="button" data-close-nested>Cancel</button><button class="primary-button" type="submit" form="nestedBudgetForm">Create budget</button></footer>
+    </section>
+  </div>
+
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="transactionDrawer" aria-labelledby="drawerTitle" aria-hidden="true">
+    <div class="drawer-header"><div><h2 id="drawerTitle">Add transaction</h2><p class="panel-subtitle">Log a purchase in a few taps.</p></div><button class="icon-button" id="closeDrawer" type="button" aria-label="Close add transaction">&times;</button></div>
+    <form id="transactionForm" class="drawer-body">
+      <label><span>Amount</span><input class="amount-input" type="number" min="0" step="0.01" placeholder="$0.00" required></label>
+      <label><span>Merchant or description</span><input type="text" placeholder="Where did you spend?" required></label>
+      <div><div class="chip-label">Category</div><div class="chips" data-chip-group><button class="chip selected" type="button">Dining</button><button class="chip" type="button">Groceries</button><button class="chip" type="button">Shopping</button><button class="chip" type="button">Gas</button><button class="chip" type="button">Amazon</button><button class="chip" type="button">Other</button></div></div>
+      <div><div class="chip-label">Card</div><div class="chips" data-chip-group><button class="chip selected" type="button">Freedom</button><button class="chip" type="button">Sapphire</button><button class="chip" type="button">Custom Cash</button><button class="chip" type="button">Venture X</button></div></div>
+      <label><span>Date</span><input type="date" value="2026-08-19" required></label>
+    </form>
+    <div class="drawer-footer"><button class="secondary-button" id="cancelDrawer" type="button">Cancel</button><button class="primary-button" type="submit" form="transactionForm">Save transaction</button></div>
+  </aside>
+  <div class="toast" id="toast" role="status">Transaction saved in the mockup.</div>
+
+  <script>
+    const monthLabel = document.getElementById('monthLabel');
+    let selectedMonth = new Date(2026, 7, 1);
+
+    function renderMonth() {
+      monthLabel.textContent = selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    document.getElementById('previousMonth').addEventListener('click', () => {
+      selectedMonth.setMonth(selectedMonth.getMonth() - 1);
+      renderMonth();
+    });
+    document.getElementById('nextMonth').addEventListener('click', () => {
+      selectedMonth.setMonth(selectedMonth.getMonth() + 1);
+      renderMonth();
+    });
+
+    const drawer = document.getElementById('transactionDrawer');
+    const scrim = document.getElementById('scrim');
+    const closeDrawerButton = document.getElementById('closeDrawer');
+
+    function setDrawer(open) {
+      drawer.classList.toggle('open', open);
+      scrim.classList.toggle('open', open);
+      drawer.setAttribute('aria-hidden', String(!open));
+      if (open) drawer.querySelector('input').focus();
+    }
+
+    document.querySelectorAll('[data-open-drawer]').forEach((button) => button.addEventListener('click', () => setDrawer(true)));
+    closeDrawerButton.addEventListener('click', () => setDrawer(false));
+    document.getElementById('cancelDrawer').addEventListener('click', () => setDrawer(false));
+    scrim.addEventListener('click', () => setDrawer(false));
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setDrawer(false); });
+
+    const insightTicker = document.getElementById('insightTicker');
+    const insightDetail = document.getElementById('insightDetail');
+    insightTicker.addEventListener('click', () => {
+      const open = insightDetail.classList.toggle('open');
+      insightTicker.setAttribute('aria-expanded', String(open));
+    });
+
+    const workspaceBackdrop = document.getElementById('workspaceBackdrop');
+    const workspaces = document.querySelectorAll('.workspace-modal');
+    const nestedLayer = document.getElementById('nestedLayer');
+    const nestedDialogs = document.querySelectorAll('.nested-dialog');
+
+    function closeNested() {
+      nestedLayer.classList.remove('open');
+      nestedDialogs.forEach((dialog) => dialog.classList.remove('open'));
+    }
+
+    function openNested(name) {
+      closeNested();
+      document.getElementById(name + 'Nested').classList.add('open');
+      nestedLayer.classList.add('open');
+    }
+
+    function closeWorkspace() {
+      closeNested();
+      workspaceBackdrop.classList.remove('open');
+      workspaces.forEach((workspace) => workspace.classList.remove('open'));
+    }
+
+    document.querySelectorAll('[data-open-workspace]').forEach((button) => button.addEventListener('click', () => {
+      closeWorkspace();
+      document.getElementById(button.dataset.openWorkspace + 'Workspace').classList.add('open');
+      workspaceBackdrop.classList.add('open');
+    }));
+    document.querySelectorAll('[data-close-workspace]').forEach((button) => button.addEventListener('click', closeWorkspace));
+    workspaceBackdrop.addEventListener('click', (event) => { if (event.target === workspaceBackdrop) closeWorkspace(); });
+    document.querySelectorAll('[data-open-nested]').forEach((button) => button.addEventListener('click', () => openNested(button.dataset.openNested)));
+    document.querySelectorAll('[data-close-nested]').forEach((button) => button.addEventListener('click', closeNested));
+    nestedLayer.addEventListener('click', (event) => { if (event.target === nestedLayer) closeNested(); });
+
+    document.getElementById('nestedTransactionForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      closeNested();
+    });
+    document.getElementById('nestedBudgetForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      closeNested();
+    });
+
+    document.querySelectorAll('[data-chip-group]').forEach((group) => {
+      group.querySelectorAll('.chip').forEach((chip) => chip.addEventListener('click', () => {
+        group.querySelectorAll('.chip').forEach((item) => item.classList.remove('selected'));
+        chip.classList.add('selected');
+      }));
+    });
+
+    document.getElementById('transactionForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      setDrawer(false);
+      const toast = document.getElementById('toast');
+      toast.classList.add('show');
+      window.setTimeout(() => toast.classList.remove('show'), 2200);
+    });
+
+    document.querySelectorAll('.menu-trigger').forEach((trigger) => trigger.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const menu = trigger.nextElementSibling;
+      document.querySelectorAll('.row-menu').forEach((item) => { if (item !== menu) item.classList.remove('open'); });
+      menu.classList.toggle('open');
+    }));
+    document.addEventListener('click', () => document.querySelectorAll('.row-menu').forEach((menu) => menu.classList.remove('open')));
+
+    const spendLine = document.getElementById('spendLine');
+    const budgetLine = document.getElementById('budgetLine');
+    const incomeLine = document.getElementById('incomeLine');
+    const expenseLine = document.getElementById('expenseLine');
+    const chartLegend = document.getElementById('chartLegend');
+    const trendSubtitle = document.getElementById('trendSubtitle');
+
+    document.querySelectorAll('.trend-toggle').forEach((button) => button.addEventListener('click', () => {
+      document.querySelectorAll('.trend-toggle').forEach((item) => item.classList.remove('active'));
+      button.classList.add('active');
+      const cashMode = button.dataset.mode === 'cash';
+      spendLine.hidden = cashMode;
+      budgetLine.hidden = cashMode;
+      incomeLine.hidden = !cashMode;
+      expenseLine.hidden = !cashMode;
+      trendSubtitle.textContent = cashMode ? 'Monthly income setting compared with recorded expenses.' : 'Cumulative spending against your budget pace.';
+      chartLegend.innerHTML = cashMode
+        ? '<span><i class="income"></i>Income</span><span><i class="expense"></i>Expenses</span>'
+        : '<span><i></i>Spent</span><span><i class="budget"></i>Budget pace</span>';
+    }));
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (nestedLayer.classList.contains('open')) closeNested();
+      else closeWorkspace();
+    });
+  </script>
+</body>
+</html>
