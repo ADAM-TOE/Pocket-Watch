@@ -23,17 +23,32 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: npm install, build, and test
+      - name: Build client (Vite -> client/dist)
+        working-directory: client
         run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
+          npm ci
+          npm run build
+
+      - name: Build and test server (tsc -> server/dist, run test gate)
+        working-directory: server
+        run: |
+          npm ci
+          npm run build
+          npm test
+
+      - name: Assemble client into server/public
+        working-directory: server
+        run: npm run copy:client
+
+      - name: Drop node_modules so Oryx installs (native better-sqlite3) on Linux
+        working-directory: server
+        run: rm -rf node_modules
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: server
 
   deploy:
     runs-on: ubuntu-latest
