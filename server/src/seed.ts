@@ -1,6 +1,6 @@
+import { fileURLToPath } from 'node:url';
+import type Database from 'better-sqlite3';
 import { db, initSchema } from './db.js';
-
-initSchema();
 
 const cards = [
   { name: 'Chase Freedom Unlimited', nickname: 'Freedom', color: '#1f6fb2' },
@@ -24,38 +24,47 @@ const categories = [
   { name: 'Other', icon: '💸', color: '#9e9e9e' },
 ];
 
-const cardCount = (db.prepare('SELECT COUNT(*) AS c FROM cards').get() as { c: number }).c;
-if (cardCount === 0) {
-  const insertCard = db.prepare('INSERT INTO cards (name, nickname, color) VALUES (?, ?, ?)');
-  db.transaction(() => {
-    for (const c of cards) insertCard.run(c.name, c.nickname, c.color);
-  })();
-  console.log(`Seeded ${cards.length} cards`);
-} else {
-  console.log(`Cards already present (${cardCount}); skipping`);
-}
+// Idempotent: safe to run on every server startup. Only inserts what's missing.
+export function seedReferenceData(database: Database.Database = db): void {
+  initSchema(database);
 
-const insertCat = db.prepare('INSERT OR IGNORE INTO categories (name, icon, color) VALUES (?, ?, ?)');
-db.transaction(() => {
-  for (const c of categories) insertCat.run(c.name, c.icon, c.color);
-})();
-console.log(`Seeded categories (${categories.length})`);
+  const cardCount = (database.prepare('SELECT COUNT(*) AS c FROM cards').get() as { c: number }).c;
+  if (cardCount === 0) {
+    const insertCard = database.prepare('INSERT INTO cards (name, nickname, color) VALUES (?, ?, ?)');
+    database.transaction(() => {
+      for (const c of cards) insertCard.run(c.name, c.nickname, c.color);
+    })();
+    console.log(`Seeded ${cards.length} cards`);
+  } else {
+    console.log(`Cards already present (${cardCount}); skipping`);
+  }
 
-const now = new Date();
-const year = now.getFullYear();
-const month = now.getMonth() + 1;
-const existingBudget = db
-  .prepare('SELECT id FROM budgets WHERE year = ? AND month = ? AND category_id IS NULL')
-  .get(year, month);
-if (!existingBudget) {
-  db.prepare('INSERT INTO budgets (year, month, category_id, amount_cents) VALUES (?, ?, NULL, ?)').run(
-    year,
-    month,
-    200_000,
+  const insertCat = database.prepare(
+    'INSERT OR IGNORE INTO categories (name, icon, color) VALUES (?, ?, ?)',
   );
-  console.log(`Seeded $2000 total budget for ${year}-${String(month).padStart(2, '0')}`);
-} else {
-  console.log('Budget already exists for current month; skipping');
+  database.transaction(() => {
+    for (const c of categories) insertCat.run(c.name, c.icon, c.color);
+  })();
+  console.log(`Seeded categories (${categories.length})`);
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const existingBudget = database
+    .prepare('SELECT id FROM budgets WHERE year = ? AND month = ? AND category_id IS NULL')
+    .get(year, month);
+  if (!existingBudget) {
+    database
+      .prepare('INSERT INTO budgets (year, month, category_id, amount_cents) VALUES (?, ?, NULL, ?)')
+      .run(year, month, 200_000);
+    console.log(`Seeded $2000 total budget for ${year}-${String(month).padStart(2, '0')}`);
+  } else {
+    console.log('Budget already exists for current month; skipping');
+  }
 }
 
-console.log('Seed complete.');
+// Only run standalone when invoked directly (npm run seed), not when imported.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  seedReferenceData(db);
+  console.log('Seed complete.');
+}
