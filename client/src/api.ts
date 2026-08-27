@@ -85,6 +85,22 @@ export function fetchReference(): Promise<Reference> {
   return getJson<Reference>('/api/reference');
 }
 
+export type NewCard = { name: string; nickname?: string; color?: string };
+
+export async function createCard(input: NewCard): Promise<Card> {
+  const response = await fetch('/api/reference/cards', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    throw new Error(detail?.error?.message ?? `Could not add card (${response.status}).`);
+  }
+  const data = (await response.json()) as { card: Card };
+  return data.card;
+}
+
 export function fetchDashboard(year: number, month: number): Promise<DashboardSummary> {
   return getJson<DashboardSummary>(`/api/dashboard?year=${year}&month=${month}`);
 }
@@ -109,5 +125,30 @@ export async function createTransaction(input: NewTransaction): Promise<void> {
   if (!response.ok) {
     const detail = await response.json().catch(() => null);
     throw new Error(detail?.error?.message ?? `Could not save transaction (${response.status}).`);
+  }
+}
+
+export async function updateTransaction(
+  id: number,
+  input: Partial<NewTransaction>,
+): Promise<Transaction> {
+  const response = await fetch(`/api/transactions/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    throw new Error(detail?.error?.message ?? `Could not update transaction (${response.status}).`);
+  }
+  const data = (await response.json()) as { transaction: Transaction };
+  return data.transaction;
+}
+
+export async function deleteTransaction(id: number): Promise<void> {
+  const response = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+  if (!response.ok && response.status !== 204) {
+    const detail = await response.json().catch(() => null);
+    throw new Error(detail?.error?.message ?? `Could not delete transaction (${response.status}).`);
   }
 }

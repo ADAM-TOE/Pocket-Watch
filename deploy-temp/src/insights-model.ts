@@ -5,7 +5,6 @@ type AzureOpenAIConfig = {
   endpoint: string;
   apiKey: string;
   deployment: string;
-  apiVersion: string;
 };
 
 const completionSchema = z.object({
@@ -24,8 +23,7 @@ export function createAzureOpenAIInsightModel(
   request: typeof fetch = fetch,
 ): InsightModel {
   const endpoint = config.endpoint.replace(/\/+$/, '');
-  const url = `${endpoint}/openai/deployments/${encodeURIComponent(config.deployment)}`
-    + `/chat/completions?api-version=${encodeURIComponent(config.apiVersion)}`;
+  const url = `${endpoint}/openai/v1/chat/completions`;
 
   return {
     async rewrite(input: InsightModelInput, signal: AbortSignal): Promise<unknown> {
@@ -37,11 +35,12 @@ export function createAzureOpenAIInsightModel(
           'api-key': config.apiKey,
         },
         body: JSON.stringify({
+          model: config.deployment,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: JSON.stringify(input) },
           ],
-          temperature: 0,
+          reasoning_effort: 'minimal',
           response_format: {
             type: 'json_schema',
             json_schema: {
@@ -54,7 +53,6 @@ export function createAzureOpenAIInsightModel(
                 properties: {
                   insights: {
                     type: 'array',
-                    maxItems: 3,
                     items: {
                       type: 'object',
                       additionalProperties: false,
@@ -97,7 +95,6 @@ export function createAzureOpenAIInsightModelFromEnv(
   return createAzureOpenAIInsightModel({
     endpoint,
     apiKey,
-    deployment: environment.AZURE_OPENAI_DEPLOYMENT?.trim() || 'gpt-4.1-mini',
-    apiVersion: environment.AZURE_OPENAI_API_VERSION?.trim() || '2024-10-21',
+    deployment: environment.AZURE_OPENAI_DEPLOYMENT?.trim() || 'gpt-5-mini',
   }, request);
 }

@@ -49,7 +49,7 @@ row counts and monthly totals against the source database.
 
 ### AI insights
 
-Azure OpenAI `gpt-4.1-mini` never reads Blob Storage or the raw transaction ledger.
+Azure OpenAI `gpt-5-mini` never reads Blob Storage or the raw transaction ledger.
 The server performs this pipeline:
 
 1. Query the selected month and the same elapsed period last month.
@@ -170,7 +170,7 @@ FIXED STACK
 - Node.js + Express
 - SQLite locally and for v1 single-instance Azure App Service
 - Recharts
-- Azure OpenAI deployment: <deployment-name>, model family gpt-4.1-mini
+- Azure OpenAI deployment: <deployment-name>, model family gpt-5-mini
 - Private Azure Blob Storage for daily SQLite snapshots
 
 FIXED RULES

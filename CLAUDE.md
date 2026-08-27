@@ -37,6 +37,80 @@
 
 ---
 
+## Learning Style — Build Agent-Free Fundamentals (LOCKED)
+
+> **The test for every explanation, pattern, and design choice:**
+> *"Will the user be able to do this by themselves, from scratch, without an AI
+> coding agent?"* If the answer is no, slow down and teach the fundamental until
+> the answer is yes.
+
+**Core principle: teach transferable skills, not disposable answers.**
+
+- **Ground-up, not top-down.** Explain the underlying language/runtime/tool
+  fundamental *first*, then show how the code applies it. The user should learn
+  the concept, not just receive a working snippet.
+- **Sustainability filter.** Prefer approaches the user can reproduce, remember,
+  and reason about unaided. Reject clever-but-opaque solutions the user could not
+  write or debug on their own, even if they are shorter.
+- **No magic.** Never introduce a library call, syntax, or pattern without
+  explaining *what it does under the hood* and *why it's the right tool*. If the
+  user couldn't explain it back, it isn't taught yet.
+- **Name the fundamental.** Every explanation should attach the concept to a
+  reusable, searchable name (e.g. "this is a pure function," "this is the
+  boundary-validation pattern," "this is a closure") so the user can study it
+  independently later.
+- **Show the manual path.** When a tool/agent would normally auto-generate
+  something, also describe how the user would build or find it by hand (docs to
+  read, command to run, how to reason it out) so the skill survives without the
+  agent.
+- **Check for retention, not just completion.** Periodically ask the user to
+  predict what a change will do, or to try the next small step themselves, before
+  revealing the answer. Understanding is the deliverable; working code is the
+  byproduct.
+- **Prefer standard, portable knowledge.** Favor language/standard-library and
+  widely documented patterns over niche tricks, so what the user learns transfers
+  to other projects and is easy to look up independently.
+
+### Examples — what "agent-free teaching" looks like
+
+**Example A — teaching a concept, not just pasting code**
+
+- ❌ *Agent-dependent:* "Here's the function to compute the month-over-month
+  delta," followed by code only.
+- ✅ *Agent-free:* "A **pure function** takes inputs and returns a result with no
+  hidden state — that's why our math is testable and you can reason about it
+  alone. It looks like this: `delta = thisMonth - lastMonth`. You could write and
+  test this yourself with no framework. Try predicting the output for
+  `1800 - 2000` before I show the test."
+
+**Example B — explaining a library instead of hiding behind it**
+
+- ❌ *Agent-dependent:* "Call `db.prepare(...).all()` to get the rows."
+- ✅ *Agent-free:* "`prepare` compiles an SQL statement once so it's reused
+  safely — this is **prepared statements**, which also prevent SQL injection by
+  keeping data separate from code. The fundamental here is *parameterized
+  queries*; search that term and you'll find it in every database library. Here's
+  how you'd write the query by hand and verify it in the SQLite CLI yourself."
+
+**Example C — showing the manual path an agent would skip**
+
+- ❌ *Agent-dependent:* "I've wired up the API route for you."
+- ✅ *Agent-free:* "An Express **route** maps an HTTP method + URL to a handler
+  function. The pattern is always `app.get(path, handler)`. Once you know that
+  shape, you can add any route without help. Let's write this one together, then
+  you add the next endpoint solo and we'll check it."
+
+**Example D — sustainability filter in action**
+
+- ❌ *Agent-dependent:* A dense one-liner with chained array methods and implicit
+  behavior the user can't unpack.
+- ✅ *Agent-free:* "We *could* compress this into one clever line, but you'd
+  struggle to debug it later. A plain `for` loop with named steps is something you
+  can read, change, and fix on your own — that's the better long-term habit here.
+  The tradeoff is a few more lines for a lot more clarity."
+
+---
+
 ## 1. North Star (LOCKED — do not drift)
 
 **A personal budgeting web app that answers:**
@@ -90,7 +164,7 @@ If a feature does not help answer the north-star question, it is **out of scope*
 - **Math owns the numbers. The LLM owns the words.**
   - All totals, budgets, projections, and month-vs-month deltas are computed by
     **plain arithmetic on SQLite data** — exact, deterministic, testable.
-  - **Azure OpenAI `gpt-4.1-mini`** receives the *already-computed* figures and
+  - **Azure OpenAI `gpt-5-mini`** receives the *already-computed* figures and
     produces narrative insights/highlights only.
 - **The LLM must NEVER invent a dollar figure.** It explains and prioritizes; it
   does not calculate. Any number it outputs must be traceable to a value we passed in.
@@ -181,7 +255,7 @@ executed and the expected result observed.
 **Azure & AI — deploy + insights buckets:**
 - **Azure MCP tools** to provision App Service B1 + the Azure OpenAI resource.
 - **Azure pricing/quota checks** before deploy — confirm cost stays under the ~$150/mo credit (signal #5).
-- **microsoft-foundry skill** for wiring `gpt-4.1-mini` insights correctly.
+- **microsoft-foundry skill** for wiring `gpt-5-mini` insights correctly.
 - **Azure best-practices + security checks** at deploy time.
 
 **Data reconciliation & backup — supports signal #4:**
@@ -209,7 +283,7 @@ Record every scope decision or direction change here (date — decision — why)
 
 - 2026-08-17 — Project intent locked: awareness-first personal budgeting web app.
 - 2026-08-17 — Stack chosen: React/TS + Node/Express + SQLite, local-first → Azure B1.
-- 2026-08-17 — AI role fixed: math owns numbers, Azure OpenAI `gpt-4.1-mini` owns narrative.
+- 2026-08-17 — AI role fixed: math owns numbers, Azure OpenAI owns narrative.
 - 2026-08-17 — Guardrails file created.
 - 2026-08-19 — Learning-first collaboration added: explain engineering principles,
   reasoning, and tradeoffs so the user stays involved and builds understanding.
@@ -218,3 +292,8 @@ Record every scope decision or direction change here (date — decision — why)
   preserve the north-star scope and explicitly exclude broader wealth features.
 - 2026-08-20 — Removed the "Can I afford this?" feature and narrowed the north
   star to monthly spending awareness and category comparison.
+- 2026-08-25 — Standardized narrative insights on `gpt-5-mini`; deterministic
+  math, validation, and fallback boundaries remain unchanged.
+- 2026-08-27 — Added Learning Style guardrail: every explanation, pattern, and
+  design choice must pass the "can the user do this without an AI agent?" test,
+  teaching agent-free fundamentals from the ground up. Scope (§1–§6) unchanged.

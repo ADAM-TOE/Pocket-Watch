@@ -3,12 +3,14 @@ import { MonthStepper } from './components/MonthStepper';
 import { AddTransactionSheet } from './components/AddTransactionSheet';
 import { AllTransactionsWorkspace } from './components/AllTransactionsWorkspace';
 import {
+  createCard,
   createTransaction,
   fetchDashboard,
   fetchInsights,
   fetchReference,
   type DashboardSummary,
   type Insight,
+  type NewCard,
   type NewTransaction,
   type Reference,
 } from './api';
@@ -64,6 +66,14 @@ export default function App() {
     await createTransaction(input);
     setSheetOpen(false);
     await loadPeriod(period.year, period.month);
+  };
+
+  const handleAddCard = async (input: NewCard) => {
+    const card = await createCard(input);
+    setReference((previous) =>
+      previous ? { ...previous, cards: [...previous.cards, card] } : previous,
+    );
+    return card;
   };
 
   const totals = summary?.totals;
@@ -238,10 +248,18 @@ export default function App() {
           defaultDate={todayIso()}
           onClose={() => setSheetOpen(false)}
           onSubmit={handleAdd}
+          onAddCard={handleAddCard}
         />
       )}
 
-      {allOpen && <AllTransactionsWorkspace onClose={() => setAllOpen(false)} />}
+      {allOpen && reference && (
+        <AllTransactionsWorkspace
+          cards={reference.cards}
+          categories={reference.categories}
+          onClose={() => setAllOpen(false)}
+          onChanged={() => loadPeriod(period.year, period.month)}
+        />
+      )}
     </div>
   );
 }

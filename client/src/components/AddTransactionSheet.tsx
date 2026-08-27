@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Card, Category, NewTransaction } from '../api';
+import type { Card, Category, NewCard, NewTransaction } from '../api';
 
 type Props = {
   cards: Card[];
@@ -7,10 +7,20 @@ type Props = {
   defaultDate: string;
   onClose: () => void;
   onSubmit: (input: NewTransaction) => Promise<void>;
+  onAddCard: (input: NewCard) => Promise<Card>;
 };
 
+const CARD_COLORS = ['#1f6fb2', '#63e6a5', '#f2b84b', '#ff786c', '#a988f0', '#4dd0e1'];
+
 // A compact bottom sheet for fast quick-add, matching the transaction-first design.
-export function AddTransactionSheet({ cards, categories, defaultDate, onClose, onSubmit }: Props) {
+export function AddTransactionSheet({
+  cards,
+  categories,
+  defaultDate,
+  onClose,
+  onSubmit,
+  onAddCard,
+}: Props) {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState<number | null>(categories[0]?.id ?? null);
@@ -18,6 +28,12 @@ export function AddTransactionSheet({ cards, categories, defaultDate, onClose, o
   const [date, setDate] = useState(defaultDate);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [addingCard, setAddingCard] = useState(false);
+  const [cardName, setCardName] = useState('');
+  const [cardNickname, setCardNickname] = useState('');
+  const [cardColor, setCardColor] = useState(CARD_COLORS[0]);
+  const [cardError, setCardError] = useState<string | null>(null);
+  const [cardSaving, setCardSaving] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -59,6 +75,32 @@ export function AddTransactionSheet({ cards, categories, defaultDate, onClose, o
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Could not save transaction.');
       setSaving(false);
+    }
+  };
+
+  const submitCard = async () => {
+    setCardError(null);
+    if (!cardName.trim()) {
+      setCardError('Give the card a name.');
+      return;
+    }
+
+    setCardSaving(true);
+    try {
+      const card = await onAddCard({
+        name: cardName.trim(),
+        nickname: cardNickname.trim() || undefined,
+        color: cardColor,
+      });
+      setCardId(card.id);
+      setAddingCard(false);
+      setCardName('');
+      setCardNickname('');
+      setCardColor(CARD_COLORS[0]);
+    } catch (addError) {
+      setCardError(addError instanceof Error ? addError.message : 'Could not add card.');
+    } finally {
+      setCardSaving(false);
     }
   };
 
@@ -134,7 +176,65 @@ export function AddTransactionSheet({ cards, categories, defaultDate, onClose, o
                 {card.nickname ?? card.name}
               </button>
             ))}
+            <button
+              type="button"
+              className="chip chip-add"
+              onClick={() => setAddingCard((open) => !open)}
+              aria-expanded={addingCard}
+            >
+              + Add card
+            </button>
           </div>
+
+          {addingCard && (
+            <div className="card-add-form">
+              <input
+                type="text"
+                placeholder="Card name (e.g. Amex Gold)"
+                maxLength={60}
+                value={cardName}
+                onChange={(event) => setCardName(event.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Nickname (optional)"
+                maxLength={40}
+                value={cardNickname}
+                onChange={(event) => setCardNickname(event.target.value)}
+              />
+              <div className="swatch-row" role="group" aria-label="Card color">
+                {CARD_COLORS.map((color) => (
+                  <button
+                    type="button"
+                    key={color}
+                    className={`swatch ${cardColor === color ? 'swatch-on' : ''}`}
+                    style={{ background: color }}
+                    aria-label={`Color ${color}`}
+                    aria-pressed={cardColor === color}
+                    onClick={() => setCardColor(color)}
+                  />
+                ))}
+              </div>
+              {cardError && <p className="sheet-error" role="alert">{cardError}</p>}
+              <div className="card-add-actions">
+                <button
+                  type="button"
+                  className="tx-mini"
+                  onClick={() => setAddingCard(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="tx-mini primary-mini"
+                  disabled={cardSaving}
+                  onClick={submitCard}
+                >
+                  {cardSaving ? 'Adding…' : 'Add card'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <label className="field">

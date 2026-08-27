@@ -32,7 +32,6 @@ test('GET /api/reference returns cards and categories with stable shape', async 
     'Groceries',
   ]);
 });
-
 test('GET /api/reference returns empty arrays when no data is seeded', async () => {
   const { app } = freshApp();
 
@@ -41,3 +40,55 @@ test('GET /api/reference returns empty arrays when no data is seeded', async () 
   assert.equal(response.status, 200);
   assert.deepEqual(response.body, { cards: [], categories: [] });
 });
+
+test('POST /api/reference/cards creates a card and returns it', async () => {
+  const { app } = freshApp();
+
+  const response = await request(app)
+    .post('/api/reference/cards')
+    .send({ name: 'Amex Gold', nickname: 'Gold', color: '#d4af37' });
+
+  assert.equal(response.status, 201);
+  assert.deepEqual(response.body.card, {
+    id: 1,
+    name: 'Amex Gold',
+    nickname: 'Gold',
+    color: '#d4af37',
+  });
+
+  const listed = await request(app).get('/api/reference');
+  assert.equal(listed.body.cards.length, 1);
+  assert.equal(listed.body.cards[0].name, 'Amex Gold');
+});
+
+test('POST /api/reference/cards defaults color and allows no nickname', async () => {
+  const { app } = freshApp();
+
+  const response = await request(app)
+    .post('/api/reference/cards')
+    .send({ name: 'Discover It' });
+
+  assert.equal(response.status, 201);
+  assert.equal(response.body.card.nickname, null);
+  assert.equal(response.body.card.color, '#888888');
+});
+
+test('POST /api/reference/cards rejects a missing name', async () => {
+  const { app } = freshApp();
+
+  const response = await request(app).post('/api/reference/cards').send({ nickname: 'x' });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'VALIDATION_ERROR');
+});
+test('POST /api/reference/cards rejects a malformed color', async () => {
+  const { app } = freshApp();
+
+  const response = await request(app)
+    .post('/api/reference/cards')
+    .send({ name: 'Bad Color', color: 'blue' });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'VALIDATION_ERROR');
+});
+
