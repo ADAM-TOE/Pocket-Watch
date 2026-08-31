@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { MonthStepper } from './components/MonthStepper';
 import { AddTransactionSheet } from './components/AddTransactionSheet';
 import { AllTransactionsWorkspace } from './components/AllTransactionsWorkspace';
+import { CategoryDonut } from './components/CategoryDonut';
 import {
   createCard,
   createTransaction,
@@ -184,6 +185,11 @@ export default function App() {
               {summary.categories.length === 0 ? (
                 <p className="muted">No spending recorded yet this month.</p>
               ) : (
+                <div className="category-breakdown">
+                <CategoryDonut
+                  categories={summary.categories}
+                  totalCents={summary.totals.spentCents}
+                />
                 <ul className="category-list">
                   {summary.categories.map((category) => (
                     <li className="category-row" key={category.categoryId}>
@@ -226,6 +232,7 @@ export default function App() {
                     </li>
                   ))}
                 </ul>
+                </div>
               )}
             </section>
           </>
