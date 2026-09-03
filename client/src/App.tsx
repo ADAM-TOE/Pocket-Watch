@@ -3,7 +3,10 @@ import { MonthStepper } from './components/MonthStepper';
 import { AddTransactionSheet } from './components/AddTransactionSheet';
 import { AllTransactionsWorkspace } from './components/AllTransactionsWorkspace';
 import { CategoryDonut } from './components/CategoryDonut';
+import { AuthScreen } from './components/AuthScreen';
+import { useAuth } from './auth/AuthContext';
 import {
+  ApiError,
   createCard,
   createTransaction,
   fetchDashboard,
@@ -32,6 +35,7 @@ function todayIso(): string {
 }
 
 export default function App() {
+  const { user, status, signOut, refresh } = useAuth();
   const now = new Date();
   const [period, setPeriod] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -41,27 +45,46 @@ export default function App() {
   const [allOpen, setAllOpen] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
-  const loadPeriod = useCallback(async (year: number, month: number) => {
-    setLoadError(false);
-    try {
-      const [dashboard, insightResult] = await Promise.all([
-        fetchDashboard(year, month),
-        fetchInsights(year, month),
-      ]);
-      setSummary(dashboard);
-      setInsights(insightResult.insights);
-    } catch {
-      setLoadError(true);
-    }
-  }, []);
+  // If any data call returns 401 the session died mid-use; re-checking /me flips
+  // the app back to the login screen instead of showing a broken dashboard.
+  const kickIfUnauthorized = useCallback(
+    (error: unknown) => {
+      if (error instanceof ApiError && error.status === 401) {
+        void refresh();
+        return true;
+      }
+      return false;
+    },
+    [refresh],
+  );
 
+  const loadPeriod = useCallback(
+    async (year: number, month: number) => {
+      setLoadError(false);
+      try {
+        const [dashboard, insightResult] = await Promise.all([
+          fetchDashboard(year, month),
+          fetchInsights(year, month),
+        ]);
+        setSummary(dashboard);
+        setInsights(insightResult.insights);
+      } catch (error) {
+        if (!kickIfUnauthorized(error)) setLoadError(true);
+      }
+    },
+    [kickIfUnauthorized],
+  );
+
+  // Load the card/category reference only once we know we're signed in.
   useEffect(() => {
+    if (status !== 'authed') return;
     fetchReference().then(setReference).catch(() => setReference({ cards: [], categories: [] }));
-  }, []);
+  }, [status]);
 
   useEffect(() => {
+    if (status !== 'authed') return;
     loadPeriod(period.year, period.month);
-  }, [period, loadPeriod]);
+  }, [period, loadPeriod, status]);
 
   const handleAdd = async (input: NewTransaction) => {
     await createTransaction(input);
@@ -81,6 +104,15 @@ export default function App() {
   const remainingCents = totals?.remainingCents ?? null;
   const overspent = remainingCents !== null && remainingCents < 0;
 
+  // Gate: nothing below renders until we know who the user is. All hooks above
+  // run every render, so these early returns don't break the rules of hooks.
+  if (status === 'loading') {
+    return <div className="auth-splash">Loading…</div>;
+  }
+  if (status === 'anon' || !user) {
+    return <AuthScreen />;
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -96,6 +128,12 @@ export default function App() {
           month={period.month}
           onChange={(year, month) => setPeriod({ year, month })}
         />
+        <div className="header-actions">
+          <span className="user-chip" title={user.email}>{user.email}</span>
+          <button type="button" className="signout-button" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </div>
       </header>
 
       {insights.length > 0 && (

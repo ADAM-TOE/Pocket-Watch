@@ -75,9 +75,32 @@ export type Transaction = {
   updatedAt: string;
 };
 
+export type AuthUser = { id: number; email: string };
+
+// A custom Error subclass that remembers the HTTP status. This lets callers tell
+// "the session died" (401) apart from other failures without string-matching.
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+// Pull the server's { error: { message } } out of a failed response, or fall back.
+async function errorMessage(response: Response, fallback: string): Promise<string> {
+  const detail = await response.json().catch(() => null);
+  return detail?.error?.message ?? fallback;
+}
+
 async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+  // credentials:'include' sends the session cookie, so data loads run as the
+  // signed-in user even if the client is served from a different origin in dev.
+  const response = await fetch(url, { credentials: 'include' });
+  if (!response.ok) {
+    throw new ApiError(response.status, await errorMessage(response, `Request failed: ${response.status}`));
+  }
   return response.json() as Promise<T>;
 }
 
@@ -91,6 +114,7 @@ export async function createCard(input: NewCard): Promise<Card> {
   const response = await fetch('/api/reference/cards', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(input),
   });
   if (!response.ok) {
@@ -120,6 +144,7 @@ export async function createTransaction(input: NewTransaction): Promise<void> {
   const response = await fetch('/api/transactions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(input),
   });
   if (!response.ok) {
@@ -135,6 +160,7 @@ export async function updateTransaction(
   const response = await fetch(`/api/transactions/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(input),
   });
   if (!response.ok) {
@@ -146,9 +172,56 @@ export async function updateTransaction(
 }
 
 export async function deleteTransaction(id: number): Promise<void> {
-  const response = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+  const response = await fetch(`/api/transactions/${id}`, { method: 'DELETE', credentials: 'include' });
   if (!response.ok && response.status !== 204) {
     const detail = await response.json().catch(() => null);
     throw new Error(detail?.error?.message ?? `Could not delete transaction (${response.status}).`);
   }
+}
+
+// ---------- Auth ----------
+
+// Returns the signed-in user, or null when there is no valid session (401).
+// Any other failure is a real error and is thrown.
+export async function fetchMe(): Promise<AuthUser | null> {
+  const response = await fetch('/api/auth/me', { credentials: 'include' });
+  if (response.status === 401) return null;
+  if (!response.ok) {
+    throw new ApiError(response.status, await errorMessage(response, 'Could not check sign-in status.'));
+  }
+  const data = (await response.json()) as { user: AuthUser };
+  return data.user;
+}
+
+// Shared POST helper for the auth endpoints that return { user } on success.
+async function postAuth(path: string, body: unknown, fallback: string): Promise<AuthUser> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, await errorMessage(response, fallback));
+  }
+  const data = (await response.json()) as { user: AuthUser };
+  return data.user;
+}
+
+export function login(email: string, password: string): Promise<AuthUser> {
+  return postAuth('/api/auth/login', { email, password }, 'Could not sign in.');
+}
+
+// Completes the forced first-login password set for a must_set_pw account.
+export function setPassword(email: string, password: string): Promise<AuthUser> {
+  return postAuth('/api/auth/set-password', { email, password }, 'Could not set your password.');
+}
+
+// Consumes a one-time recovery code and sets a new password.
+export function recover(email: string, code: string, password: string): Promise<AuthUser> {
+  return postAuth('/api/auth/recover', { email, code, password }, 'Could not reset your password.');
+}
+
+export async function logout(): Promise<void> {
+  await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
 }

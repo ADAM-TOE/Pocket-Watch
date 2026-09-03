@@ -1003,3 +1003,115 @@ input:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Header actions (user + sign out) ---------- */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-chip {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+  font-family: Bahnschrift, 'Arial Narrow', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.signout-button {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: Bahnschrift, 'Arial Narrow', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.signout-button:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* ---------- Auth screen ---------- */
+.auth-splash {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: var(--text-dim);
+  font-family: Bahnschrift, 'Arial Narrow', sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 13px;
+}
+
+.auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: rgba(20, 28, 38, 0.96);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 26px 24px 24px;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.auth-brand h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.05;
+  margin: 0;
+}
+
+.auth-heading {
+  margin: 0;
+  font-family: Bahnschrift, 'Arial Narrow', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.auth-sub {
+  margin: 0 0 4px;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.auth-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+@media (max-width: 760px) {
+  .header-actions {
+    order: 2;
+    margin-left: auto;
+  }
+}
+
