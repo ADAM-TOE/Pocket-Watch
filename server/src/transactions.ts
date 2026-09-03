@@ -2,6 +2,7 @@ import { Router, type Response } from 'express';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import { invalidateInsightCacheForDates } from './insights.js';
+import { categoryExists, createUserStore, type UserStore } from './store.js';
 
 const amountCents = z.number().int().positive().max(100_000_000);
 const referenceId = z.number().int().positive();
@@ -44,20 +45,6 @@ const listSchema = z.object({
 type TransactionInput = z.infer<typeof createTransactionSchema>;
 type TransactionUpdate = z.infer<typeof updateTransactionSchema>;
 
-type TransactionRow = {
-  id: number;
-  amountCents: number;
-  description: string;
-  categoryId: number;
-  categoryName: string;
-  cardId: number;
-  cardName: string;
-  date: string;
-  source: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
 class RequestError extends Error {
   constructor(
     readonly status: number,
@@ -67,24 +54,6 @@ class RequestError extends Error {
     super(message);
   }
 }
-
-const transactionSelect = `
-  SELECT
-    transactions.id,
-    transactions.amount_cents AS amountCents,
-    transactions.description,
-    transactions.category_id AS categoryId,
-    categories.name AS categoryName,
-    transactions.card_id AS cardId,
-    cards.name AS cardName,
-    transactions.date,
-    transactions.source,
-    transactions.created_at AS createdAt,
-    transactions.updated_at AS updatedAt
-  FROM transactions
-  JOIN categories ON categories.id = transactions.category_id
-  JOIN cards ON cards.id = transactions.card_id
-`;
 
 function sendValidationError(response: Response, error: z.ZodError): void {
   response.status(400).json({
@@ -99,26 +68,19 @@ function sendValidationError(response: Response, error: z.ZodError): void {
   });
 }
 
+// Category is a shared/global lookup; the card must be owned by this user.
 function assertReferencesExist(
   database: Database.Database,
+  store: UserStore,
   categoryId: number,
   cardId: number,
 ): void {
-  const category = database.prepare('SELECT 1 FROM categories WHERE id = ?').get(categoryId);
-  if (!category) {
+  if (!categoryExists(database, categoryId)) {
     throw new RequestError(400, 'INVALID_CATEGORY', 'The selected category does not exist.');
   }
-
-  const card = database.prepare('SELECT 1 FROM cards WHERE id = ?').get(cardId);
-  if (!card) {
+  if (!store.cardExists(cardId)) {
     throw new RequestError(400, 'INVALID_CARD', 'The selected card does not exist.');
   }
-}
-
-function getTransaction(database: Database.Database, id: number): TransactionRow | undefined {
-  return database.prepare(`${transactionSelect} WHERE transactions.id = ?`).get(id) as
-    | TransactionRow
-    | undefined;
 }
 
 function nextMonth(year: number, month: number): { year: number; month: number } {
@@ -151,23 +113,16 @@ export function createTransactionsRouter(database: Database.Database): Router {
     }
 
     const { year, month, limit, offset } = parsed.data;
-    const parameters: Array<string | number> = [];
-    let where = '';
+    const store = createUserStore(database, request.userId!);
+    const range =
+      year !== undefined && month !== undefined
+        ? {
+            start: periodStart(year, month),
+            end: periodStart(nextMonth(year, month).year, nextMonth(year, month).month),
+          }
+        : null;
 
-    if (year !== undefined && month !== undefined) {
-      const following = nextMonth(year, month);
-      where = 'WHERE transactions.date >= ? AND transactions.date < ?';
-      parameters.push(periodStart(year, month), periodStart(following.year, following.month));
-    }
-
-    parameters.push(limit, offset);
-    const transactions = database.prepare(`
-      ${transactionSelect}
-      ${where}
-      ORDER BY transactions.date DESC, transactions.id DESC
-      LIMIT ? OFFSET ?
-    `).all(...parameters) as TransactionRow[];
-
+    const transactions = store.listTransactions(range, limit, offset);
     response.json({ transactions, pagination: { limit, offset } });
   });
 
@@ -178,18 +133,16 @@ export function createTransactionsRouter(database: Database.Database): Router {
       return;
     }
 
+    const store = createUserStore(database, request.userId!);
     try {
       const id = database.transaction((input: TransactionInput) => {
-        assertReferencesExist(database, input.categoryId, input.cardId);
-        const result = database.prepare(`
-          INSERT INTO transactions (amount_cents, description, category_id, card_id, date)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(input.amountCents, input.description, input.categoryId, input.cardId, input.date);
-        invalidateInsightCacheForDates(database, [input.date]);
-        return Number(result.lastInsertRowid);
+        assertReferencesExist(database, store, input.categoryId, input.cardId);
+        const newId = store.insertTransaction(input);
+        invalidateInsightCacheForDates(store, [input.date]);
+        return newId;
       })(parsed.data);
 
-      response.status(201).json({ transaction: getTransaction(database, id) });
+      response.status(201).json({ transaction: store.getTransaction(id) });
     } catch (error) {
       handleRouteError(response, error);
     }
@@ -207,15 +160,17 @@ export function createTransactionsRouter(database: Database.Database): Router {
       return;
     }
 
+    const store = createUserStore(database, request.userId!);
     try {
       database.transaction((transactionId: number, input: TransactionUpdate) => {
-        const existing = getTransaction(database, transactionId);
+        const existing = store.getTransaction(transactionId);
         if (!existing) {
           throw new RequestError(404, 'TRANSACTION_NOT_FOUND', 'Transaction not found.');
         }
 
         assertReferencesExist(
           database,
+          store,
           input.categoryId ?? existing.categoryId,
           input.cardId ?? existing.cardId,
         );
@@ -238,16 +193,16 @@ export function createTransactionsRouter(database: Database.Database): Router {
           }
         }
 
-        values.push(transactionId);
-        database.prepare(`
-          UPDATE transactions
-          SET ${columns.join(', ')}, updated_at = datetime('now')
-          WHERE id = ?
-        `).run(...values);
-        invalidateInsightCacheForDates(database, [existing.date, input.date ?? existing.date]);
+        // IDOR-safe: the store's UPDATE includes user_id, so a cross-owner id
+        // changes zero rows; we reject that as a 404 rather than touch a row.
+        const changes = store.updateTransaction(transactionId, columns, values);
+        if (changes !== 1) {
+          throw new RequestError(404, 'TRANSACTION_NOT_FOUND', 'Transaction not found.');
+        }
+        invalidateInsightCacheForDates(store, [existing.date, input.date ?? existing.date]);
       })(id.data, update.data);
 
-      response.json({ transaction: getTransaction(database, id.data) });
+      response.json({ transaction: store.getTransaction(id.data) });
     } catch (error) {
       handleRouteError(response, error);
     }
@@ -260,7 +215,8 @@ export function createTransactionsRouter(database: Database.Database): Router {
       return;
     }
 
-    const existing = getTransaction(database, id.data);
+    const store = createUserStore(database, request.userId!);
+    const existing = store.getTransaction(id.data);
     if (!existing) {
       response.status(404).json({
         error: { code: 'TRANSACTION_NOT_FOUND', message: 'Transaction not found.' },
@@ -268,8 +224,8 @@ export function createTransactionsRouter(database: Database.Database): Router {
       return;
     }
     database.transaction(() => {
-      database.prepare('DELETE FROM transactions WHERE id = ?').run(id.data);
-      invalidateInsightCacheForDates(database, [existing.date]);
+      store.deleteTransaction(id.data);
+      invalidateInsightCacheForDates(store, [existing.date]);
     })();
 
     response.status(204).send();

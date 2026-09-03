@@ -297,3 +297,6 @@ Record every scope decision or direction change here (date — decision — why)
 - 2026-08-27 — Added Learning Style guardrail: every explanation, pattern, and
   design choice must pass the "can the user do this without an AI agent?" test,
   teaching agent-free fundamentals from the ground up. Scope (§1–§6) unchanged.
+- 2026-09-03 — Multi-user Bucket 3 decision: `categories` stays a shared/global
+  lookup table (not per-user). Only `cards`, `transactions`, `budgets`, and
+  `insight_cache` get the `user_id` owner column. Scope (§1–§6) unchanged.

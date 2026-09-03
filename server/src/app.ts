@@ -3,6 +3,7 @@ import cors from 'cors';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
+import { createAuthRouter, requireAuth } from './auth.js';
 import { createBudgetsRouter } from './budgets.js';
 import { db, initSchema } from './db.js';
 import { createDashboardRouter } from './dashboard.js';
@@ -40,6 +41,11 @@ export function createApp(
     });
   });
 
+  app.use('/api/auth', createAuthRouter(database));
+  // Every remaining /api route requires a valid session. Because /api/auth and
+  // /api/health are registered before this guard, they stay public; all data
+  // routers below run only after requireAuth has set req.userId.
+  app.use('/api', requireAuth(database));
   app.use('/api/reference', createReferenceRouter(database));
   app.use('/api/transactions', createTransactionsRouter(database));
   app.use('/api/dashboard', createDashboardRouter(database, options.today));

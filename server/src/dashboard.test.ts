@@ -4,11 +4,13 @@ import Database from 'better-sqlite3';
 import request from 'supertest';
 import { createApp } from './app.js';
 import { initSchema } from './db.js';
+import { createAuthedUser } from './test-helpers.js';
 
 function setup(today = '2026-08-20') {
   const database = new Database(':memory:');
   database.pragma('foreign_keys = ON');
   initSchema(database);
+  const { userId, cookie } = createAuthedUser(database);
 
   const diningId = Number(database.prepare(`
     INSERT INTO categories (name, icon, color) VALUES ('Dining', 'fork', '#ff0000')
@@ -17,19 +19,19 @@ function setup(today = '2026-08-20') {
     INSERT INTO categories (name, icon, color) VALUES ('Groceries', 'cart', '#00ff00')
   `).run().lastInsertRowid);
   const cardId = Number(database.prepare(`
-    INSERT INTO cards (name, nickname, color) VALUES ('Test Card', 'Test', '#000000')
-  `).run().lastInsertRowid);
+    INSERT INTO cards (user_id, name, nickname, color) VALUES (?, 'Test Card', 'Test', '#000000')
+  `).run(userId).lastInsertRowid);
 
   const insertTransaction = database.prepare(`
-    INSERT INTO transactions (amount_cents, description, category_id, card_id, date)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO transactions (user_id, amount_cents, description, category_id, card_id, date)
+    VALUES (?, ?, ?, ?, ?, ?)
   `);
   const addTransaction = (
     amountCents: number,
     description: string,
     categoryId: number,
     date: string,
-  ) => insertTransaction.run(amountCents, description, categoryId, cardId, date);
+  ) => insertTransaction.run(userId, amountCents, description, categoryId, cardId, date);
 
   return {
     database,
@@ -37,6 +39,8 @@ function setup(today = '2026-08-20') {
     diningId,
     groceriesId,
     addTransaction,
+    cookie,
+    userId,
   };
 }
 
@@ -44,13 +48,13 @@ test('dashboard returns exact month-to-date totals, fair comparison, categories,
   const context = setup();
   try {
     context.database.prepare(`
-      INSERT INTO budgets (year, month, category_id, amount_cents)
-      VALUES (2026, 8, NULL, 200000)
-    `).run();
+      INSERT INTO budgets (user_id, year, month, category_id, amount_cents)
+      VALUES (?, 2026, 8, NULL, 200000)
+    `).run(context.userId);
     context.database.prepare(`
-      INSERT INTO budgets (year, month, category_id, amount_cents)
-      VALUES (2026, 8, ?, 50000)
-    `).run(context.diningId);
+      INSERT INTO budgets (user_id, year, month, category_id, amount_cents)
+      VALUES (?, 2026, 8, ?, 50000)
+    `).run(context.userId, context.diningId);
     context.addTransaction(2000, 'Lunch', context.diningId, '2026-08-01');
     context.addTransaction(3000, 'Market', context.groceriesId, '2026-08-20');
     context.addTransaction(9000, 'Future purchase', context.diningId, '2026-08-21');
@@ -58,7 +62,7 @@ test('dashboard returns exact month-to-date totals, fair comparison, categories,
     context.addTransaction(1000, 'July market', context.groceriesId, '2026-07-20');
     context.addTransaction(8000, 'Late July', context.diningId, '2026-07-21');
 
-    const response = await request(context.app).get('/api/dashboard?year=2026&month=8');
+    const response = await request(context.app).get('/api/dashboard?year=2026&month=8').set('Cookie', context.cookie);
 
     assert.equal(response.status, 200);
     assert.deepEqual(response.body.period, {
@@ -137,7 +141,7 @@ test('dashboard returns exact month-to-date totals, fair comparison, categories,
 test('dashboard handles zero spending and a missing budget without invented values', async () => {
   const context = setup();
   try {
-    const response = await request(context.app).get('/api/dashboard?year=2026&month=8');
+    const response = await request(context.app).get('/api/dashboard?year=2026&month=8').set('Cookie', context.cookie);
     assert.equal(response.status, 200);
     assert.deepEqual(response.body.totals, {
       spentCents: 0,
@@ -162,12 +166,12 @@ test('dashboard reports overspending as a negative remaining amount', async () =
   const context = setup();
   try {
     context.database.prepare(`
-      INSERT INTO budgets (year, month, category_id, amount_cents)
-      VALUES (2026, 8, NULL, 4000)
-    `).run();
+      INSERT INTO budgets (user_id, year, month, category_id, amount_cents)
+      VALUES (?, 2026, 8, NULL, 4000)
+    `).run(context.userId);
     context.addTransaction(5000, 'Large market trip', context.groceriesId, '2026-08-10');
 
-    const response = await request(context.app).get('/api/dashboard?year=2026&month=8');
+    const response = await request(context.app).get('/api/dashboard?year=2026&month=8').set('Cookie', context.cookie);
     assert.equal(response.status, 200);
     assert.equal(response.body.totals.spentCents, 5000);
     assert.equal(response.body.totals.remainingCents, -1000);
@@ -183,7 +187,7 @@ test('historical February comparison handles leap years, January rollover, and u
     context.addTransaction(2800, 'January day 28', context.diningId, '2024-01-28');
     context.addTransaction(3000, 'January day 30', context.diningId, '2024-01-30');
 
-    const february = await request(context.app).get('/api/dashboard?year=2024&month=2');
+    const february = await request(context.app).get('/api/dashboard?year=2024&month=2').set('Cookie', context.cookie);
     assert.equal(february.status, 200);
     assert.deepEqual(february.body.period, {
       year: 2024,
@@ -196,7 +200,7 @@ test('historical February comparison handles leap years, January rollover, and u
 
     context.addTransaction(3100, 'January end', context.diningId, '2026-01-31');
     context.addTransaction(3000, 'December end', context.diningId, '2025-12-31');
-    const january = await request(context.app).get('/api/dashboard?year=2026&month=1');
+    const january = await request(context.app).get('/api/dashboard?year=2026&month=1').set('Cookie', context.cookie);
     assert.deepEqual(january.body.period.comparison, { year: 2025, month: 12, throughDay: 31 });
     assert.equal(january.body.totals.deltaCents, 100);
   } finally {
@@ -207,7 +211,7 @@ test('historical February comparison handles leap years, January rollover, and u
 test('dashboard rejects invalid periods', async () => {
   const context = setup();
   try {
-    const response = await request(context.app).get('/api/dashboard?year=2026&month=13');
+    const response = await request(context.app).get('/api/dashboard?year=2026&month=13').set('Cookie', context.cookie);
     assert.equal(response.status, 400);
     assert.equal(response.body.error.code, 'VALIDATION_ERROR');
   } finally {

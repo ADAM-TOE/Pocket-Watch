@@ -7,6 +7,7 @@ import Database from 'better-sqlite3';
 import request from 'supertest';
 import { createApp } from './app.js';
 import { initSchema } from './db.js';
+import { createAuthedUser } from './test-helpers.js';
 
 function setup() {
   const clientDir = mkdtempSync(join(tmpdir(), 'pocket-watch-client-'));
@@ -14,7 +15,8 @@ function setup() {
   const database = new Database(':memory:');
   database.pragma('foreign_keys = ON');
   initSchema(database);
-  return { clientDir, database, app: createApp(database, { clientDistPath: clientDir }) };
+  const { cookie } = createAuthedUser(database);
+  return { clientDir, database, cookie, app: createApp(database, { clientDistPath: clientDir }) };
 }
 
 test('the built client is served at the root and for client-side routes', async () => {
@@ -40,7 +42,7 @@ test('API routes still return JSON and are not shadowed by the SPA fallback', as
     assert.equal(health.status, 200);
     assert.equal(health.body.status, 'ok');
 
-    const unknownApi = await request(context.app).get('/api/does-not-exist');
+    const unknownApi = await request(context.app).get('/api/does-not-exist').set('Cookie', context.cookie);
     assert.equal(unknownApi.status, 404);
     assert.doesNotMatch(unknownApi.text, /POCKET WATCH APP/);
   } finally {

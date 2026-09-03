@@ -4,25 +4,27 @@ import Database from 'better-sqlite3';
 import request from 'supertest';
 import { createApp } from './app.js';
 import { initSchema } from './db.js';
+import { createAuthedUser } from './test-helpers.js';
 
 function setup() {
   const database = new Database(':memory:');
   database.pragma('foreign_keys = ON');
   initSchema(database);
+  const { userId, cookie } = createAuthedUser(database);
   const categoryId = Number(database.prepare(`
     INSERT INTO categories (name, icon, color) VALUES ('Dining', 'fork', '#ffffff')
   `).run().lastInsertRowid);
   const cardId = Number(database.prepare(`
-    INSERT INTO cards (name, nickname, color) VALUES ('Test Card', 'Test', '#000000')
-  `).run().lastInsertRowid);
+    INSERT INTO cards (user_id, name, nickname, color) VALUES (?, 'Test Card', 'Test', '#000000')
+  `).run(userId).lastInsertRowid);
 
-  return { database, app: createApp(database), categoryId, cardId };
+  return { database, app: createApp(database), categoryId, cardId, cookie, userId };
 }
 
 test('transaction amount and date round-trip exactly through CRUD routes', async () => {
   const context = setup();
   try {
-    const created = await request(context.app).post('/api/transactions').send({
+    const created = await request(context.app).post('/api/transactions').set('Cookie', context.cookie).send({
       amountCents: 1999,
       description: 'Corner Cafe',
       categoryId: context.categoryId,
@@ -34,20 +36,22 @@ test('transaction amount and date round-trip exactly through CRUD routes', async
     assert.equal(created.body.transaction.amountCents, 1999);
     assert.equal(created.body.transaction.date, '2026-01-31');
 
-    const listed = await request(context.app).get('/api/transactions?year=2026&month=1');
+    const listed = await request(context.app).get('/api/transactions?year=2026&month=1').set('Cookie', context.cookie);
     assert.equal(listed.status, 200);
     assert.equal(listed.body.transactions.length, 1);
     assert.equal(listed.body.transactions[0].amountCents, 1999);
 
     const updated = await request(context.app)
       .patch(`/api/transactions/${created.body.transaction.id}`)
+      .set('Cookie', context.cookie)
       .send({ amountCents: 2050, date: '2026-02-01' });
     assert.equal(updated.status, 200);
     assert.equal(updated.body.transaction.amountCents, 2050);
     assert.equal(updated.body.transaction.date, '2026-02-01');
 
     const deleted = await request(context.app)
-      .delete(`/api/transactions/${created.body.transaction.id}`);
+      .delete(`/api/transactions/${created.body.transaction.id}`)
+      .set('Cookie', context.cookie);
     assert.equal(deleted.status, 204);
     assert.equal(
       (context.database.prepare('SELECT COUNT(*) AS count FROM transactions').get() as { count: number }).count,
@@ -79,7 +83,7 @@ test('invalid input and missing references return 400 without writing data', asy
     ];
 
     for (const body of invalidRequests) {
-      const response = await request(context.app).post('/api/transactions').send(body);
+      const response = await request(context.app).post('/api/transactions').set('Cookie', context.cookie).send(body);
       assert.equal(response.status, 400);
     }
 
@@ -97,7 +101,7 @@ test('month filtering uses local calendar boundaries and stable newest-first ord
   try {
     const dates = ['2025-12-31', '2026-01-01', '2026-01-31', '2026-02-01'];
     for (const [index, date] of dates.entries()) {
-      const response = await request(context.app).post('/api/transactions').send({
+      const response = await request(context.app).post('/api/transactions').set('Cookie', context.cookie).send({
         amountCents: 1000 + index,
         description: `Purchase ${index}`,
         categoryId: context.categoryId,
@@ -107,7 +111,7 @@ test('month filtering uses local calendar boundaries and stable newest-first ord
       assert.equal(response.status, 201);
     }
 
-    const january = await request(context.app).get('/api/transactions?year=2026&month=1');
+    const january = await request(context.app).get('/api/transactions?year=2026&month=1').set('Cookie', context.cookie);
     assert.equal(january.status, 200);
     assert.deepEqual(
       january.body.transactions.map((transaction: { date: string }) => transaction.date),

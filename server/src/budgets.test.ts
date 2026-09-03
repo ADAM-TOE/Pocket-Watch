@@ -4,11 +4,13 @@ import Database from 'better-sqlite3';
 import request from 'supertest';
 import { createApp } from './app.js';
 import { initSchema } from './db.js';
+import { createAuthedUser } from './test-helpers.js';
 
 function setup() {
   const database = new Database(':memory:');
   database.pragma('foreign_keys = ON');
   initSchema(database);
+  const { userId, cookie } = createAuthedUser(database);
 
   const diningId = Number(database.prepare(`
     INSERT INTO categories (name, icon, color) VALUES ('Dining', 'fork', '#ff0000')
@@ -17,21 +19,21 @@ function setup() {
     INSERT INTO categories (name, icon, color) VALUES ('Groceries', 'cart', '#00ff00')
   `).run().lastInsertRowid);
   const cardId = Number(database.prepare(`
-    INSERT INTO cards (name, nickname, color) VALUES ('Test Card', 'Test', '#000000')
-  `).run().lastInsertRowid);
+    INSERT INTO cards (user_id, name, nickname, color) VALUES (?, 'Test Card', 'Test', '#000000')
+  `).run(userId).lastInsertRowid);
 
-  return { database, app: createApp(database), diningId, groceriesId, cardId };
+  return { database, app: createApp(database), diningId, groceriesId, cardId, cookie, userId };
 }
 
 test('exact category allocations save and return spending-derived remaining amounts', async () => {
   const context = setup();
   try {
     context.database.prepare(`
-      INSERT INTO transactions (amount_cents, description, category_id, card_id, date)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(12_500, 'Dinner', context.diningId, context.cardId, '2026-08-10');
+      INSERT INTO transactions (user_id, amount_cents, description, category_id, card_id, date)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(context.userId, 12_500, 'Dinner', context.diningId, context.cardId, '2026-08-10');
 
-    const saved = await request(context.app).put('/api/budgets/2026/8').send({
+    const saved = await request(context.app).put('/api/budgets/2026/8').set('Cookie', context.cookie).send({
       totalBudgetCents: 200_000,
       allocations: [
         { categoryId: context.diningId, amountCents: 50_000 },
@@ -59,7 +61,7 @@ test('exact category allocations save and return spending-derived remaining amou
       },
     ]);
 
-    const read = await request(context.app).get('/api/budgets/2026/8');
+    const read = await request(context.app).get('/api/budgets/2026/8').set('Cookie', context.cookie);
     assert.equal(read.status, 200);
     assert.deepEqual(read.body, saved.body);
   } finally {
@@ -78,12 +80,12 @@ test('under-allocation and over-allocation are rejected without changing saved d
       ],
     };
     assert.equal(
-      (await request(context.app).put('/api/budgets/2026/8').send(valid)).status,
+      (await request(context.app).put('/api/budgets/2026/8').set('Cookie', context.cookie).send(valid)).status,
       200,
     );
 
     for (const amountCents of [149_999, 150_001]) {
-      const response = await request(context.app).put('/api/budgets/2026/8').send({
+      const response = await request(context.app).put('/api/budgets/2026/8').set('Cookie', context.cookie).send({
         ...valid,
         allocations: [
           valid.allocations[0],
@@ -94,7 +96,7 @@ test('under-allocation and over-allocation are rejected without changing saved d
       assert.equal(response.body.error.code, 'ALLOCATION_MISMATCH');
     }
 
-    const read = await request(context.app).get('/api/budgets/2026/8');
+    const read = await request(context.app).get('/api/budgets/2026/8').set('Cookie', context.cookie);
     assert.equal(read.body.totalBudgetCents, 200_000);
     assert.equal(read.body.allocatedCents, 200_000);
   } finally {
@@ -106,7 +108,7 @@ test('overspending is negative and editing one month preserves another month', a
   const context = setup();
   try {
     const saveMonth = (month: number, diningAmountCents: number) =>
-      request(context.app).put(`/api/budgets/2026/${month}`).send({
+      request(context.app).put(`/api/budgets/2026/${month}`).set('Cookie', context.cookie).send({
         totalBudgetCents: 200_000,
         allocations: [
           { categoryId: context.diningId, amountCents: diningAmountCents },
@@ -117,18 +119,18 @@ test('overspending is negative and editing one month preserves another month', a
     assert.equal((await saveMonth(7, 40_000)).status, 200);
     assert.equal((await saveMonth(8, 50_000)).status, 200);
     context.database.prepare(`
-      INSERT INTO transactions (amount_cents, description, category_id, card_id, date)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(55_000, 'August dining', context.diningId, context.cardId, '2026-08-12');
+      INSERT INTO transactions (user_id, amount_cents, description, category_id, card_id, date)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(context.userId, 55_000, 'August dining', context.diningId, context.cardId, '2026-08-12');
     assert.equal((await saveMonth(8, 60_000)).status, 200);
 
-    const july = await request(context.app).get('/api/budgets/2026/7');
-    const august = await request(context.app).get('/api/budgets/2026/8');
+    const july = await request(context.app).get('/api/budgets/2026/7').set('Cookie', context.cookie);
+    const august = await request(context.app).get('/api/budgets/2026/8').set('Cookie', context.cookie);
     assert.equal(july.body.allocations[0].amountCents, 40_000);
     assert.equal(august.body.allocations[0].amountCents, 60_000);
 
     assert.equal((await saveMonth(8, 50_000)).status, 200);
-    const overspent = await request(context.app).get('/api/budgets/2026/8');
+    const overspent = await request(context.app).get('/api/budgets/2026/8').set('Cookie', context.cookie);
     assert.equal(overspent.body.allocations[0].remainingCents, -5_000);
   } finally {
     context.database.close();
@@ -138,10 +140,10 @@ test('overspending is negative and editing one month preserves another month', a
 test('invalid periods, duplicate categories, and missing categories are rejected', async () => {
   const context = setup();
   try {
-    const invalidPeriod = await request(context.app).get('/api/budgets/2026/13');
+    const invalidPeriod = await request(context.app).get('/api/budgets/2026/13').set('Cookie', context.cookie);
     assert.equal(invalidPeriod.status, 400);
 
-    const duplicate = await request(context.app).put('/api/budgets/2026/8').send({
+    const duplicate = await request(context.app).put('/api/budgets/2026/8').set('Cookie', context.cookie).send({
       totalBudgetCents: 200_000,
       allocations: [
         { categoryId: context.diningId, amountCents: 100_000 },
@@ -150,7 +152,7 @@ test('invalid periods, duplicate categories, and missing categories are rejected
     });
     assert.equal(duplicate.status, 400);
 
-    const missingCategory = await request(context.app).put('/api/budgets/2026/8').send({
+    const missingCategory = await request(context.app).put('/api/budgets/2026/8').set('Cookie', context.cookie).send({
       totalBudgetCents: 200_000,
       allocations: [{ categoryId: 9999, amountCents: 200_000 }],
     });

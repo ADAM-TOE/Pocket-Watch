@@ -3,6 +3,7 @@ import type Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { getDashboardSummary, getHouseholdDate, type Period } from './dashboard.js';
+import { createUserStore, type UserStore } from './store.js';
 
 const periodSchema = z.object({
   year: z.coerce.number().int().min(2000).max(2100),
@@ -242,15 +243,11 @@ function sourceHash(candidates: CandidateFact[]): string {
 }
 
 function readCachedInsights(
-  database: Database.Database,
+  store: UserStore,
   period: Period,
   hash: string,
 ) {
-  const cached = database.prepare(`
-    SELECT source_hash AS sourceHash, payload_json AS payloadJson
-    FROM insight_cache
-    WHERE year = ? AND month = ?
-  `).get(period.year, period.month) as { sourceHash: string; payloadJson: string } | undefined;
+  const cached = store.readInsightCache(period.year, period.month);
   if (!cached || cached.sourceHash !== hash) return null;
 
   try {
@@ -259,36 +256,24 @@ function readCachedInsights(
   } catch {
     // Corrupt cache entries are discarded and regenerated below.
   }
-  database.prepare('DELETE FROM insight_cache WHERE year = ? AND month = ?')
-    .run(period.year, period.month);
+  store.deleteInsightCache(period.year, period.month);
   return null;
 }
 
 function writeCachedInsights(
-  database: Database.Database,
+  store: UserStore,
   period: Period,
   hash: string,
   insights: z.infer<typeof renderedInsightSchema>[],
 ): void {
-  database.prepare(`
-    INSERT INTO insight_cache (year, month, source_hash, payload_json)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(year, month) DO UPDATE SET
-      source_hash = excluded.source_hash,
-      payload_json = excluded.payload_json,
-      created_at = datetime('now')
-  `).run(period.year, period.month, hash, JSON.stringify(insights));
+  store.writeInsightCache(period.year, period.month, hash, JSON.stringify(insights));
 }
 
-export function invalidateInsightCache(database: Database.Database, period: Period): void {
-  database.prepare('DELETE FROM insight_cache WHERE year = ? AND month = ?')
-    .run(period.year, period.month);
+export function invalidateInsightCache(store: UserStore, period: Period): void {
+  store.deleteInsightCache(period.year, period.month);
 }
 
-export function invalidateInsightCacheForDates(
-  database: Database.Database,
-  dates: string[],
-): void {
+export function invalidateInsightCacheForDates(store: UserStore, dates: string[]): void {
   const periods = new Map<string, Period>();
   for (const date of dates) {
     const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(date);
@@ -297,7 +282,7 @@ export function invalidateInsightCacheForDates(
       periods.set(`${period.year}-${period.month}`, period);
     }
   }
-  for (const period of periods.values()) invalidateInsightCache(database, period);
+  for (const period of periods.values()) invalidateInsightCache(store, period);
 }
 
 export function createInsightsRouter(
@@ -315,7 +300,8 @@ export function createInsightsRouter(
       return;
     }
 
-    const summary = getDashboardSummary(database, period.data as Period, today());
+    const store = createUserStore(database, request.userId!);
+    const summary = getDashboardSummary(store, period.data as Period, today());
     const candidates = buildCandidateFacts(summary);
     if (candidates.length === 0) {
       response.json({ source: 'fallback', insights: [] });
@@ -323,7 +309,7 @@ export function createInsightsRouter(
     }
 
     const hash = sourceHash(candidates);
-    const cached = readCachedInsights(database, period.data, hash);
+    const cached = readCachedInsights(store, period.data, hash);
     if (cached) {
       response.json({ source: 'cache', insights: cached });
       return;
@@ -344,7 +330,7 @@ export function createInsightsRouter(
       const output = await model.rewrite(input, controller.signal);
       const insights = validateAndRender(output, candidates);
       if (insights) {
-        writeCachedInsights(database, period.data, hash, insights);
+        writeCachedInsights(store, period.data, hash, insights);
         response.json({ source: 'model', insights });
       } else {
         response.json({ source: 'fallback', insights: fallbackInsights(candidates) });

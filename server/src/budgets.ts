@@ -2,6 +2,7 @@ import { Router, type Response } from 'express';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import { invalidateInsightCache } from './insights.js';
+import { categoryExists, createUserStore, type UserStore } from './store.js';
 
 const periodSchema = z.object({
   year: z.coerce.number().int().min(2000).max(2100),
@@ -25,13 +26,6 @@ const saveBudgetSchema = z.object({
 type Period = z.infer<typeof periodSchema>;
 type SaveBudget = z.infer<typeof saveBudgetSchema>;
 
-type BudgetRow = {
-  categoryId: number;
-  categoryName: string;
-  amountCents: number;
-  spentCents: number;
-};
-
 function sendValidationError(response: Response, error: z.ZodError): void {
   response.status(400).json({
     error: {
@@ -53,38 +47,19 @@ function followingPeriod({ year, month }: Period): Period {
   return month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 };
 }
 
-function readBudget(database: Database.Database, period: Period) {
-  const total = database.prepare(`
-    SELECT amount_cents AS amountCents
-    FROM budgets
-    WHERE year = ? AND month = ? AND category_id IS NULL
-  `).get(period.year, period.month) as { amountCents: number } | undefined;
+function readBudget(store: UserStore, period: Period) {
+  const totalBudgetCents = store.totalBudget(period.year, period.month);
   const following = followingPeriod(period);
-  const rows = database.prepare(`
-    SELECT
-      budgets.category_id AS categoryId,
-      categories.name AS categoryName,
-      budgets.amount_cents AS amountCents,
-      COALESCE(SUM(transactions.amount_cents), 0) AS spentCents
-    FROM budgets
-    JOIN categories ON categories.id = budgets.category_id
-    LEFT JOIN transactions
-      ON transactions.category_id = budgets.category_id
-      AND transactions.date >= ?
-      AND transactions.date < ?
-    WHERE budgets.year = ? AND budgets.month = ? AND budgets.category_id IS NOT NULL
-    GROUP BY budgets.category_id, categories.name, budgets.amount_cents
-    ORDER BY categories.name, budgets.category_id
-  `).all(
-    periodStart(period.year, period.month),
-    periodStart(following.year, following.month),
+  const rows = store.budgetAllocationsWithSpend(
     period.year,
     period.month,
-  ) as BudgetRow[];
+    periodStart(period.year, period.month),
+    periodStart(following.year, following.month),
+  );
 
   return {
     period,
-    totalBudgetCents: total?.amountCents ?? null,
+    totalBudgetCents: totalBudgetCents ?? null,
     allocatedCents: rows.reduce((sum, row) => sum + row.amountCents, 0),
     allocations: rows.map((row) => ({
       ...row,
@@ -94,9 +69,7 @@ function readBudget(database: Database.Database, period: Period) {
 }
 
 function assertCategoriesExist(database: Database.Database, budget: SaveBudget): boolean {
-  return budget.allocations.every((allocation) => database.prepare(
-    'SELECT 1 FROM categories WHERE id = ?',
-  ).get(allocation.categoryId));
+  return budget.allocations.every((allocation) => categoryExists(database, allocation.categoryId));
 }
 
 export function createBudgetsRouter(database: Database.Database): Router {
@@ -109,7 +82,8 @@ export function createBudgetsRouter(database: Database.Database): Router {
       return;
     }
 
-    response.json(readBudget(database, period.data));
+    const store = createUserStore(database, request.userId!);
+    response.json(readBudget(store, period.data));
   });
 
   router.put('/:year/:month', (request, response) => {
@@ -144,29 +118,18 @@ export function createBudgetsRouter(database: Database.Database): Router {
       return;
     }
 
+    const store = createUserStore(database, request.userId!);
     database.transaction((selectedPeriod: Period, input: SaveBudget) => {
-      database.prepare('DELETE FROM budgets WHERE year = ? AND month = ?')
-        .run(selectedPeriod.year, selectedPeriod.month);
-      database.prepare(`
-        INSERT INTO budgets (year, month, category_id, amount_cents)
-        VALUES (?, ?, NULL, ?)
-      `).run(selectedPeriod.year, selectedPeriod.month, input.totalBudgetCents);
-      const insertAllocation = database.prepare(`
-        INSERT INTO budgets (year, month, category_id, amount_cents)
-        VALUES (?, ?, ?, ?)
-      `);
-      for (const allocation of input.allocations) {
-        insertAllocation.run(
-          selectedPeriod.year,
-          selectedPeriod.month,
-          allocation.categoryId,
-          allocation.amountCents,
-        );
-      }
-      invalidateInsightCache(database, selectedPeriod);
+      store.replaceBudgets(
+        selectedPeriod.year,
+        selectedPeriod.month,
+        input.totalBudgetCents,
+        input.allocations,
+      );
+      invalidateInsightCache(store, selectedPeriod);
     })(period.data, budget.data);
 
-    response.json(readBudget(database, period.data));
+    response.json(readBudget(store, period.data));
   });
 
   return router;

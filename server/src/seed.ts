@@ -24,20 +24,10 @@ const categories = [
   { name: 'Other', icon: '💸', color: '#9e9e9e' },
 ];
 
-// Idempotent: safe to run on every server startup. Only inserts what's missing.
+// Idempotent: safe to run on every server startup. Categories are a shared/global
+// lookup table, so they are seeded once for everyone (not per user).
 export function seedReferenceData(database: Database.Database = db): void {
   initSchema(database);
-
-  const cardCount = (database.prepare('SELECT COUNT(*) AS c FROM cards').get() as { c: number }).c;
-  if (cardCount === 0) {
-    const insertCard = database.prepare('INSERT INTO cards (name, nickname, color) VALUES (?, ?, ?)');
-    database.transaction(() => {
-      for (const c of cards) insertCard.run(c.name, c.nickname, c.color);
-    })();
-    console.log(`Seeded ${cards.length} cards`);
-  } else {
-    console.log(`Cards already present (${cardCount}); skipping`);
-  }
 
   const insertCat = database.prepare(
     'INSERT OR IGNORE INTO categories (name, icon, color) VALUES (?, ?, ?)',
@@ -46,20 +36,39 @@ export function seedReferenceData(database: Database.Database = db): void {
     for (const c of categories) insertCat.run(c.name, c.icon, c.color);
   })();
   console.log(`Seeded categories (${categories.length})`);
+}
+
+// Per-user starting data: the four preloaded cards and a default $2000 total
+// monthly budget for the current month, all owned by userId. Idempotent per user.
+export function seedUserData(database: Database.Database, userId: number): void {
+  const cardCount = (
+    database.prepare('SELECT COUNT(*) AS c FROM cards WHERE user_id = ?').get(userId) as { c: number }
+  ).c;
+  if (cardCount === 0) {
+    const insertCard = database.prepare(
+      'INSERT INTO cards (user_id, name, nickname, color) VALUES (?, ?, ?, ?)',
+    );
+    database.transaction(() => {
+      for (const c of cards) insertCard.run(userId, c.name, c.nickname, c.color);
+    })();
+    console.log(`Seeded ${cards.length} cards for user ${userId}`);
+  }
 
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
   const existingBudget = database
-    .prepare('SELECT id FROM budgets WHERE year = ? AND month = ? AND category_id IS NULL')
-    .get(year, month);
+    .prepare(
+      'SELECT id FROM budgets WHERE user_id = ? AND year = ? AND month = ? AND category_id IS NULL',
+    )
+    .get(userId, year, month);
   if (!existingBudget) {
     database
-      .prepare('INSERT INTO budgets (year, month, category_id, amount_cents) VALUES (?, ?, NULL, ?)')
-      .run(year, month, 200_000);
-    console.log(`Seeded $2000 total budget for ${year}-${String(month).padStart(2, '0')}`);
-  } else {
-    console.log('Budget already exists for current month; skipping');
+      .prepare(
+        'INSERT INTO budgets (user_id, year, month, category_id, amount_cents) VALUES (?, ?, ?, NULL, ?)',
+      )
+      .run(userId, year, month, 200_000);
+    console.log(`Seeded $2000 total budget for user ${userId} (${year}-${String(month).padStart(2, '0')})`);
   }
 }
 

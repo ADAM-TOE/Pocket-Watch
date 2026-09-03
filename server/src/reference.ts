@@ -1,20 +1,7 @@
 import { Router, type Response } from 'express';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
-
-type CardRow = {
-  id: number;
-  name: string;
-  nickname: string | null;
-  color: string;
-};
-
-type CategoryRow = {
-  id: number;
-  name: string;
-  icon: string;
-  color: string;
-};
+import { createUserStore, listCategories } from './store.js';
 
 const createCardSchema = z.object({
   name: z.string().trim().min(1).max(60),
@@ -39,19 +26,9 @@ function sendValidationError(response: Response, error: z.ZodError): void {
 export function createReferenceRouter(database: Database.Database): Router {
   const router = Router();
 
-  router.get('/', (_request, response) => {
-    const cards = database.prepare(`
-      SELECT id, name, nickname, color
-      FROM cards
-      ORDER BY id
-    `).all() as CardRow[];
-    const categories = database.prepare(`
-      SELECT id, name, icon, color
-      FROM categories
-      ORDER BY name, id
-    `).all() as CategoryRow[];
-
-    response.json({ cards, categories });
+  router.get('/', (request, response) => {
+    const store = createUserStore(database, request.userId!);
+    response.json({ cards: store.listCards(), categories: listCategories(database) });
   });
 
   router.post('/cards', (request, response) => {
@@ -61,18 +38,9 @@ export function createReferenceRouter(database: Database.Database): Router {
       return;
     }
 
+    const store = createUserStore(database, request.userId!);
     const { name, nickname, color } = parsed.data;
-    const result = database.prepare(`
-      INSERT INTO cards (name, nickname, color)
-      VALUES (?, ?, ?)
-    `).run(name, nickname ?? null, color ?? '#888888');
-
-    const card = database.prepare(`
-      SELECT id, name, nickname, color
-      FROM cards
-      WHERE id = ?
-    `).get(Number(result.lastInsertRowid)) as CardRow;
-
+    const card = store.createCard(name, nickname ?? null, color ?? '#888888');
     response.status(201).json({ card });
   });
 

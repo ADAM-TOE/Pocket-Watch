@@ -6,29 +6,34 @@ import { createApp } from './app.js';
 import { getDashboardSummary } from './dashboard.js';
 import { initSchema } from './db.js';
 import { buildCandidateFacts, type InsightModel, type InsightModelInput } from './insights.js';
+import { createAuthedUser } from './test-helpers.js';
+import { createUserStore } from './store.js';
 
 function setup(model: InsightModel, insightTimeoutMs?: number) {
   const database = new Database(':memory:');
   database.pragma('foreign_keys = ON');
   initSchema(database);
+  const { userId, cookie } = createAuthedUser(database);
 
   const diningId = Number(database.prepare(`
     INSERT INTO categories (name, icon, color) VALUES ('Dining', 'fork', '#ff0000')
   `).run().lastInsertRowid);
   const cardId = Number(database.prepare(`
-    INSERT INTO cards (name, nickname, color) VALUES ('Test Card', 'Test', '#000000')
-  `).run().lastInsertRowid);
+    INSERT INTO cards (user_id, name, nickname, color) VALUES (?, 'Test Card', 'Test', '#000000')
+  `).run(userId).lastInsertRowid);
   const insertTransaction = database.prepare(`
-    INSERT INTO transactions (amount_cents, description, category_id, card_id, date)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO transactions (user_id, amount_cents, description, category_id, card_id, date)
+    VALUES (?, ?, ?, ?, ?, ?)
   `);
-  insertTransaction.run(7_500, 'August dinner', diningId, cardId, '2026-08-10');
-  insertTransaction.run(5_000, 'July dinner', diningId, cardId, '2026-07-10');
+  insertTransaction.run(userId, 7_500, 'August dinner', diningId, cardId, '2026-08-10');
+  insertTransaction.run(userId, 5_000, 'July dinner', diningId, cardId, '2026-07-10');
 
   return {
     database,
     diningId,
     cardId,
+    cookie,
+    userId,
     app: createApp(database, {
       today: () => '2026-08-20',
       insightModel: model,
@@ -58,7 +63,7 @@ test('validated model wording renders server-owned figures and evidence filters'
   const context = setup(model);
 
   try {
-    const response = await request(context.app).get('/api/insights?year=2026&month=8');
+    const response = await request(context.app).get('/api/insights?year=2026&month=8').set('Cookie', context.cookie);
 
     assert.equal(response.status, 200);
     assert.equal(response.body.source, 'model');
@@ -107,7 +112,7 @@ test('unknown facts, invented numbers, and malformed output use deterministic fa
   for (const output of invalidOutputs) {
     const context = setup({ async rewrite() { return output; } });
     try {
-      const response = await request(context.app).get('/api/insights?year=2026&month=8');
+      const response = await request(context.app).get('/api/insights?year=2026&month=8').set('Cookie', context.cookie);
       assert.equal(response.status, 200);
       assert.equal(response.body.source, 'fallback');
       assert.equal(
@@ -132,7 +137,7 @@ test('model timeout returns fallback content without failing the endpoint', asyn
   const context = setup(model, 5);
 
   try {
-    const response = await request(context.app).get('/api/insights?year=2026&month=8');
+    const response = await request(context.app).get('/api/insights?year=2026&month=8').set('Cookie', context.cookie);
     assert.equal(response.status, 200);
     assert.equal(response.body.source, 'fallback');
     assert.equal(response.body.insights.length >= 1 && response.body.insights.length <= 3, true);
@@ -145,7 +150,7 @@ test('arithmetic inconsistency prevents candidate generation', () => {
   const context = setup({ async rewrite() { return { insights: [] }; } });
   try {
     const summary = getDashboardSummary(
-      context.database,
+      createUserStore(context.database, context.userId),
       { year: 2026, month: 8 },
       '2026-08-20',
     );
@@ -177,13 +182,13 @@ test('validated results are cached and a transaction write invalidates the month
   const context = setup(model);
 
   try {
-    const first = await request(context.app).get('/api/insights?year=2026&month=8');
-    const second = await request(context.app).get('/api/insights?year=2026&month=8');
+    const first = await request(context.app).get('/api/insights?year=2026&month=8').set('Cookie', context.cookie);
+    const second = await request(context.app).get('/api/insights?year=2026&month=8').set('Cookie', context.cookie);
     assert.equal(first.body.source, 'model');
     assert.equal(second.body.source, 'cache');
     assert.equal(calls, 1);
 
-    const created = await request(context.app).post('/api/transactions').send({
+    const created = await request(context.app).post('/api/transactions').set('Cookie', context.cookie).send({
       amountCents: 1_000,
       description: 'Another dinner',
       categoryId: context.diningId,
@@ -192,20 +197,20 @@ test('validated results are cached and a transaction write invalidates the month
     });
     assert.equal(created.status, 201);
 
-    const refreshed = await request(context.app).get('/api/insights?year=2026&month=8');
+    const refreshed = await request(context.app).get('/api/insights?year=2026&month=8').set('Cookie', context.cookie);
     assert.equal(refreshed.body.source, 'model');
     assert.equal(calls, 2);
     assert.equal(refreshed.body.insights[0].text.includes('$35.00'), true);
 
-    const cachedAgain = await request(context.app).get('/api/insights?year=2026&month=8');
+    const cachedAgain = await request(context.app).get('/api/insights?year=2026&month=8').set('Cookie', context.cookie);
     assert.equal(cachedAgain.body.source, 'cache');
-    const budget = await request(context.app).put('/api/budgets/2026/8').send({
+    const budget = await request(context.app).put('/api/budgets/2026/8').set('Cookie', context.cookie).send({
       totalBudgetCents: 200_000,
       allocations: [{ categoryId: context.diningId, amountCents: 200_000 }],
     });
     assert.equal(budget.status, 200);
 
-    const afterBudget = await request(context.app).get('/api/insights?year=2026&month=8');
+    const afterBudget = await request(context.app).get('/api/insights?year=2026&month=8').set('Cookie', context.cookie);
     assert.equal(afterBudget.body.source, 'model');
     assert.equal(calls, 3);
   } finally {

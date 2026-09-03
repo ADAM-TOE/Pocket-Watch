@@ -1,6 +1,7 @@
 import { Router, type Response } from 'express';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
+import { createUserStore, type UserStore } from './store.js';
 
 const summaryQuerySchema = z.object({
   year: z.coerce.number().int().min(2000).max(2100),
@@ -95,32 +96,16 @@ function throughDayForPeriod(period: Period, todayValue: string): number {
 }
 
 function readTransactions(
-  database: Database.Database,
+  store: UserStore,
   period: Period,
   throughDay: number,
 ): SummaryTransaction[] {
   if (throughDay === 0) return [];
 
-  return database.prepare(`
-    SELECT
-      transactions.id,
-      transactions.amount_cents AS amountCents,
-      transactions.description,
-      transactions.category_id AS categoryId,
-      categories.name AS categoryName,
-      categories.color AS categoryColor,
-      transactions.card_id AS cardId,
-      cards.name AS cardName,
-      transactions.date
-    FROM transactions
-    JOIN categories ON categories.id = transactions.category_id
-    JOIN cards ON cards.id = transactions.card_id
-    WHERE transactions.date >= ? AND transactions.date < ?
-    ORDER BY transactions.date DESC, transactions.id DESC
-  `).all(
+  return store.readTransactionsBetween(
     dateString(period.year, period.month, 1),
     dateAfter(period.year, period.month, throughDay),
-  ) as SummaryTransaction[];
+  );
 }
 
 function sumTransactions(transactions: SummaryTransaction[]): number {
@@ -221,14 +206,15 @@ export function createDashboardRouter(
       return;
     }
 
-    response.json(getDashboardSummary(database, parsed.data, today()));
+    const store = createUserStore(database, request.userId!);
+    response.json(getDashboardSummary(store, parsed.data, today()));
   });
 
   return router;
 }
 
 export function getDashboardSummary(
-  database: Database.Database,
+  store: UserStore,
   period: Period,
   todayValue: string = getHouseholdDate(),
 ) {
@@ -238,23 +224,16 @@ export function getDashboardSummary(
     throughDay,
     daysInMonth(comparisonPeriod.year, comparisonPeriod.month),
   );
-  const current = readTransactions(database, period, throughDay);
+  const current = readTransactions(store, period, throughDay);
   const currentComparison = transactionsThroughDay(current, comparisonThroughDay);
-  const previous = readTransactions(database, comparisonPeriod, comparisonThroughDay);
+  const previous = readTransactions(store, comparisonPeriod, comparisonThroughDay);
   const spentCents = sumTransactions(current);
   const currentComparisonSpentCents = sumTransactions(currentComparison);
   const previousSpentCents = sumTransactions(previous);
-  const budget = database.prepare(`
-    SELECT amount_cents AS amountCents
-    FROM budgets
-    WHERE year = ? AND month = ? AND category_id IS NULL
-  `).get(period.year, period.month) as { amountCents: number } | undefined;
+  const totalBudgetCents = store.totalBudget(period.year, period.month);
   const categoryBudgets = new Map(
-    (database.prepare(`
-      SELECT category_id AS categoryId, amount_cents AS amountCents
-      FROM budgets
-      WHERE year = ? AND month = ? AND category_id IS NOT NULL
-    `).all(period.year, period.month) as Array<{ categoryId: number; amountCents: number }>)
+    store
+      .categoryBudgets(period.year, period.month)
       .map((row) => [row.categoryId, row.amountCents]),
   );
 
@@ -266,8 +245,8 @@ export function getDashboardSummary(
     },
     totals: {
       spentCents,
-      budgetCents: budget?.amountCents ?? null,
-      remainingCents: budget ? budget.amountCents - spentCents : null,
+      budgetCents: totalBudgetCents ?? null,
+      remainingCents: totalBudgetCents !== undefined ? totalBudgetCents - spentCents : null,
       currentComparisonSpentCents,
       previousSpentCents,
       deltaCents: currentComparisonSpentCents - previousSpentCents,
