@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { createAuthRouter, requireAuth } from './auth.js';
+import { createWebAuthnRouter } from './webauthn.js';
 import { createBudgetsRouter } from './budgets.js';
 import { db, initSchema } from './db.js';
 import { createDashboardRouter } from './dashboard.js';
@@ -42,6 +43,9 @@ export function createApp(
   });
 
   app.use('/api/auth', createAuthRouter(database));
+  // Passkey routes: login is public, enrollment self-guards with requireAuth.
+  // Mounted before the global guard below so passkey login works pre-session.
+  app.use('/api/auth/webauthn', createWebAuthnRouter(database));
   // Every remaining /api route requires a valid session. Because /api/auth and
   // /api/health are registered before this guard, they stay public; all data
   // routers below run only after requireAuth has set req.userId.

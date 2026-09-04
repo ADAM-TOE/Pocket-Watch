@@ -12,6 +12,8 @@ import {
   fetchDashboard,
   fetchInsights,
   fetchReference,
+  passkeysSupported,
+  webauthnRegister,
   type DashboardSummary,
   type Insight,
   type NewCard,
@@ -44,6 +46,23 @@ export default function App() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [allOpen, setAllOpen] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [supportsPasskey, setSupportsPasskey] = useState(false);
+  const [passkeyMsg, setPasskeyMsg] = useState<string | null>(null);
+
+  // Only offer "Add passkey" on browsers that support WebAuthn.
+  useEffect(() => {
+    passkeysSupported().then(setSupportsPasskey).catch(() => setSupportsPasskey(false));
+  }, []);
+
+  const handleAddPasskey = async () => {
+    setPasskeyMsg('Follow your device prompt…');
+    try {
+      await webauthnRegister();
+      setPasskeyMsg('Passkey added ✓');
+    } catch (error) {
+      setPasskeyMsg(error instanceof Error ? error.message : 'Could not add passkey.');
+    }
+  };
 
   // If any data call returns 401 the session died mid-use; re-checking /me flips
   // the app back to the login screen instead of showing a broken dashboard.
@@ -130,9 +149,15 @@ export default function App() {
         />
         <div className="header-actions">
           <span className="user-chip" title={user.email}>{user.email}</span>
+          {supportsPasskey && (
+            <button type="button" className="signout-button" onClick={handleAddPasskey}>
+              + Passkey
+            </button>
+          )}
           <button type="button" className="signout-button" onClick={() => void signOut()}>
             Sign out
           </button>
+          {passkeyMsg && <span className="passkey-msg" role="status">{passkeyMsg}</span>}
         </div>
       </header>
 

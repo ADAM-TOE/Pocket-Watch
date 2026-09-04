@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { login, recover, setPassword, type AuthUser } from '../api';
+import { useEffect, useState, type FormEvent } from 'react';
+import { login, recover, setPassword, webauthnLogin, passkeysSupported, type AuthUser } from '../api';
 import { useAuth } from '../auth/AuthContext';
 
 // One screen, three jobs. `mode` is a tiny state machine: the same form shows
@@ -32,12 +32,32 @@ export function AuthScreen() {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [supportsPasskey, setSupportsPasskey] = useState(false);
+
+  // Hide the passkey button entirely on browsers that can't do WebAuthn.
+  useEffect(() => {
+    passkeysSupported().then(setSupportsPasskey).catch(() => setSupportsPasskey(false));
+  }, []);
 
   // Switching modes clears any stale error/code so the form starts clean.
   const switchMode = (next: Mode) => {
     setMode(next);
     setError(null);
     setCode('');
+  };
+
+  const handlePasskey = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const user = await webauthnLogin();
+      setUser(user);
+    } catch (err) {
+      // Cancelling the native Face ID / Windows Hello prompt also throws here,
+      // so keep the message gentle rather than alarming.
+      setError(err instanceof Error ? err.message : 'Passkey sign-in was cancelled.');
+      setBusy(false);
+    }
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -116,6 +136,22 @@ export function AuthScreen() {
         <button type="submit" className="primary-button" disabled={busy}>
           {busy ? 'Working…' : SUBMIT_LABEL[mode]}
         </button>
+
+        {mode === 'signin' && supportsPasskey && (
+          <>
+            <div className="auth-divider">
+              <span>or</span>
+            </div>
+            <button
+              type="button"
+              className="passkey-button"
+              onClick={handlePasskey}
+              disabled={busy}
+            >
+              🔑 Sign in with a passkey
+            </button>
+          </>
+        )}
 
         <div className="auth-links">
           {mode !== 'signin' && (

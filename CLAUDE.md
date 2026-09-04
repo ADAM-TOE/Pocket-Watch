@@ -300,3 +300,11 @@ Record every scope decision or direction change here (date — decision — why)
 - 2026-09-03 — Multi-user Bucket 3 decision: `categories` stays a shared/global
   lookup table (not per-user). Only `cards`, `transactions`, `budgets`, and
   `insight_cache` get the `user_id` owner column. Scope (§1–§6) unchanged.
+- 2026-09-04 — Bucket 6 (passkeys) decision: use the vetted `@simplewebauthn`
+  library for the WebAuthn crypto core (CBOR/COSE parsing + signature
+  verification) rather than hand-rolling it, because that binary parsing is
+  security-critical and opaque to hand-verify. Flow logic, the single-use
+  challenge store, and the `sign_count` clone guard are still written by hand and
+  unit-tested. Overrides the plan's "deep — by hand before a vetted library"
+  default for this one component only; added 0 new npm-audit findings. Scope
+  (§1–§6) unchanged.

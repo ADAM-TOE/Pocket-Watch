@@ -174,6 +174,33 @@ export function initSchema(database: Database.Database = db): void {
       used_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- Passkey (WebAuthn) credentials. We store only the PUBLIC key, which is
+    -- useless to a thief: the matching private key never leaves the device's
+    -- secure hardware. sign_count is the authenticator's usage counter; a value
+    -- that fails to increase signals a cloned authenticator (see webauthn.ts).
+    CREATE TABLE IF NOT EXISTS webauthn_credentials (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      credential_id TEXT NOT NULL UNIQUE,
+      public_key BLOB NOT NULL,
+      sign_count INTEGER NOT NULL DEFAULT 0,
+      transports TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Short-lived, single-use WebAuthn challenges. The random challenge we ask a
+    -- device to sign is stored here and matched on verify, then deleted, so a
+    -- captured response cannot be replayed. The row id doubles as the value of a
+    -- separate HttpOnly cookie, binding the challenge to the browser that started
+    -- the ceremony. user_id is set only for enrollment (a logged-in user).
+    CREATE TABLE IF NOT EXISTS webauthn_challenges (
+      id TEXT PRIMARY KEY,
+      challenge TEXT NOT NULL,
+      purpose TEXT NOT NULL,
+      user_id INTEGER,
+      expires_at TEXT NOT NULL
+    );
   `);
 
   database.transaction(() => migrateLegacyMoneyColumns(database))();
@@ -206,6 +233,7 @@ export function initSchema(database: Database.Database = db): void {
     CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_attempts_email_time ON login_attempts(email, created_at);
     CREATE INDEX IF NOT EXISTS idx_recovery_user ON recovery_codes(user_id);
+    CREATE INDEX IF NOT EXISTS idx_webauthn_cred_user ON webauthn_credentials(user_id);
   `);
 }
 

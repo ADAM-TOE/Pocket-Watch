@@ -225,3 +225,61 @@ export function recover(email: string, code: string, password: string): Promise<
 export async function logout(): Promise<void> {
   await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
 }
+
+// ---------- Passkeys (WebAuthn) ----------
+
+// A tiny POST-JSON helper for the passkey ceremony steps.
+async function postJson(path: string, body: unknown, fallback: string): Promise<unknown> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body ?? {}),
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, await errorMessage(response, fallback));
+  }
+  return response.json();
+}
+
+// Enroll a passkey for the already-signed-in user. The two server calls bracket
+// the browser's own credential-creation step: we ask the server for options
+// (challenge), let the device mint a key pair, then send the public key back to
+// be verified and stored.
+export async function webauthnRegister(): Promise<void> {
+  const { startRegistration } = await import('@simplewebauthn/browser');
+  const optionsJSON = (await postJson(
+    '/api/auth/webauthn/register/options',
+    {},
+    'Could not start passkey enrollment.',
+  )) as Parameters<typeof startRegistration>[0]['optionsJSON'];
+
+  const attestation = await startRegistration({ optionsJSON });
+  await postJson('/api/auth/webauthn/register/verify', attestation, 'Could not save the passkey.');
+}
+
+// Sign in with a passkey. Same shape, mirrored: get a challenge, have the device
+// sign it, send the signature to be verified. On success a session cookie is set
+// and the user is returned.
+export async function webauthnLogin(): Promise<AuthUser> {
+  const { startAuthentication } = await import('@simplewebauthn/browser');
+  const optionsJSON = (await postJson(
+    '/api/auth/webauthn/login/options',
+    {},
+    'Could not start passkey sign-in.',
+  )) as Parameters<typeof startAuthentication>[0]['optionsJSON'];
+
+  const assertion = await startAuthentication({ optionsJSON });
+  const data = (await postJson(
+    '/api/auth/webauthn/login/verify',
+    assertion,
+    'Passkey sign-in failed.',
+  )) as { user: AuthUser };
+  return data.user;
+}
+
+// True when this browser can do WebAuthn at all (hide passkey UI otherwise).
+export async function passkeysSupported(): Promise<boolean> {
+  const { browserSupportsWebAuthn } = await import('@simplewebauthn/browser');
+  return browserSupportsWebAuthn();
+}

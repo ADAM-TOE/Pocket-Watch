@@ -62,7 +62,7 @@ function readSessionCookie(request: Request): string | null {
   return null;
 }
 
-function setSessionCookie(response: Response, token: string): void {
+export function setSessionCookie(response: Response, token: string): void {
   response.cookie(COOKIE_NAME, token, {
     httpOnly: true, // JS in the browser cannot read it (blunts XSS token theft)
     sameSite: 'lax', // not sent on cross-site POSTs (baseline CSRF defense)
