@@ -8,6 +8,7 @@ import { useAuth } from './auth/AuthContext';
 import {
   ApiError,
   createCard,
+  createCategory,
   createTransaction,
   fetchDashboard,
   fetchInsights,
@@ -17,6 +18,7 @@ import {
   type DashboardSummary,
   type Insight,
   type NewCard,
+  type NewCategory,
   type NewTransaction,
   type Reference,
 } from './api';
@@ -25,8 +27,8 @@ import {
   formatDollars,
   formatMonth,
   formatShare,
-  formatShortDate,
   formatSignedDollars,
+  formatTxDate,
 } from './format';
 
 function todayIso(): string {
@@ -117,6 +119,22 @@ export default function App() {
       previous ? { ...previous, cards: [...previous.cards, card] } : previous,
     );
     return card;
+  };
+
+  const handleAddCategory = async (input: NewCategory) => {
+    const category = await createCategory(input);
+    // Keep the list ordered by name so it matches the server's ordering.
+    setReference((previous) =>
+      previous
+        ? {
+            ...previous,
+            categories: [...previous.categories, category].sort((a, b) =>
+              a.name.localeCompare(b.name),
+            ),
+          }
+        : previous,
+    );
+    return category;
   };
 
   const totals = summary?.totals;
@@ -233,7 +251,7 @@ export default function App() {
                       <span className="tx-main">
                         <span className="tx-desc">{tx.description}</span>
                         <span className="tx-meta">
-                          {tx.categoryName} · {tx.cardName} · {formatShortDate(tx.date)}
+                          {tx.categoryName} · {tx.cardName} · {formatTxDate(tx.date, tx.dayKnown)}
                         </span>
                       </span>
                       <span className="tx-amount">{formatCents(tx.amountCents)}</span>
@@ -316,9 +334,11 @@ export default function App() {
           cards={reference.cards}
           categories={reference.categories}
           defaultDate={todayIso()}
+          period={period}
           onClose={() => setSheetOpen(false)}
           onSubmit={handleAdd}
           onAddCard={handleAddCard}
+          onAddCategory={handleAddCategory}
         />
       )}
 

@@ -62,6 +62,70 @@ test('transaction amount and date round-trip exactly through CRUD routes', async
   }
 });
 
+test('month-only transactions store the 1st with dayKnown 0; exact days keep dayKnown 1', async () => {
+  const context = setup();
+  try {
+    // No date: the client sends the viewed month instead.
+    const monthOnly = await request(context.app).post('/api/transactions').set('Cookie', context.cookie).send({
+      amountCents: 4200,
+      description: 'Forgotten day grocery run',
+      categoryId: context.categoryId,
+      cardId: context.cardId,
+      period: { year: 2026, month: 8 },
+    });
+    assert.equal(monthOnly.status, 201);
+    assert.equal(monthOnly.body.transaction.date, '2026-08-01');
+    assert.equal(monthOnly.body.transaction.dayKnown, 0);
+
+    // It must land in the August window despite having no real day.
+    const august = await request(context.app).get('/api/transactions?year=2026&month=8').set('Cookie', context.cookie);
+    assert.equal(august.body.transactions.length, 1);
+    assert.equal(august.body.transactions[0].dayKnown, 0);
+
+    // An exact date is recorded verbatim and flagged as a known day.
+    const exact = await request(context.app).post('/api/transactions').set('Cookie', context.cookie).send({
+      amountCents: 999,
+      description: 'Exact day coffee',
+      categoryId: context.categoryId,
+      cardId: context.cardId,
+      date: '2026-08-14',
+    });
+    assert.equal(exact.status, 201);
+    assert.equal(exact.body.transaction.date, '2026-08-14');
+    assert.equal(exact.body.transaction.dayKnown, 1);
+
+    // Sending both, or neither, is rejected without writing a row.
+    const both = await request(context.app).post('/api/transactions').set('Cookie', context.cookie).send({
+      amountCents: 100,
+      description: 'Ambiguous',
+      categoryId: context.categoryId,
+      cardId: context.cardId,
+      date: '2026-08-14',
+      period: { year: 2026, month: 8 },
+    });
+    assert.equal(both.status, 400);
+
+    const neither = await request(context.app).post('/api/transactions').set('Cookie', context.cookie).send({
+      amountCents: 100,
+      description: 'Ambiguous',
+      categoryId: context.categoryId,
+      cardId: context.cardId,
+    });
+    assert.equal(neither.status, 400);
+
+    // Editing a month-only entry to an exact day flips the flag to known.
+    const promoted = await request(context.app)
+      .patch(`/api/transactions/${monthOnly.body.transaction.id}`)
+      .set('Cookie', context.cookie)
+      .send({ date: '2026-08-09' });
+    assert.equal(promoted.status, 200);
+    assert.equal(promoted.body.transaction.date, '2026-08-09');
+    assert.equal(promoted.body.transaction.dayKnown, 1);
+  } finally {
+    context.database.close();
+  }
+});
+
 test('invalid input and missing references return 400 without writing data', async () => {
   const context = setup();
   const valid = {

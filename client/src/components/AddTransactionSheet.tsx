@@ -1,31 +1,47 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Card, Category, NewCard, NewTransaction } from '../api';
+import type { Card, Category, NewCard, NewCategory, NewTransaction } from '../api';
+import { formatMonth } from '../format';
 
 type Props = {
   cards: Card[];
   categories: Category[];
   defaultDate: string;
+  period: { year: number; month: number };
   onClose: () => void;
   onSubmit: (input: NewTransaction) => Promise<void>;
   onAddCard: (input: NewCard) => Promise<Card>;
+  onAddCategory: (input: NewCategory) => Promise<Category>;
 };
 
 const CARD_COLORS = ['#1f6fb2', '#63e6a5', '#f2b84b', '#ff786c', '#a988f0', '#4dd0e1'];
+
+// The native date picker opens to the month of its starting value, so we seed it
+// with the month the app is currently viewing. If that is the current real-world
+// month we start on today's date; for any other month we start on its 1st.
+function initialExactDate(period: { year: number; month: number }, today: string): string {
+  const monthPrefix = `${period.year}-${String(period.month).padStart(2, '0')}`;
+  return today.startsWith(monthPrefix) ? today : `${monthPrefix}-01`;
+}
 
 // A compact bottom sheet for fast quick-add, matching the transaction-first design.
 export function AddTransactionSheet({
   cards,
   categories,
   defaultDate,
+  period,
   onClose,
   onSubmit,
   onAddCard,
+  onAddCategory,
 }: Props) {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState<number | null>(categories[0]?.id ?? null);
   const [cardId, setCardId] = useState<number | null>(cards[0]?.id ?? null);
-  const [date, setDate] = useState(defaultDate);
+  // Default to month-only entry: fast to log when the exact day isn't remembered.
+  const [useExactDay, setUseExactDay] = useState(false);
+  // When the user does want a day, open the picker on the month they're viewing.
+  const [date, setDate] = useState(() => initialExactDate(period, defaultDate));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [addingCard, setAddingCard] = useState(false);
@@ -34,6 +50,12 @@ export function AddTransactionSheet({
   const [cardColor, setCardColor] = useState(CARD_COLORS[0]);
   const [cardError, setCardError] = useState<string | null>(null);
   const [cardSaving, setCardSaving] = useState(false);
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryIcon, setCategoryIcon] = useState('💸');
+  const [categoryColor, setCategoryColor] = useState(CARD_COLORS[0]);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [categorySaving, setCategorySaving] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -70,7 +92,7 @@ export function AddTransactionSheet({
         description: description.trim(),
         categoryId,
         cardId,
-        date,
+        ...(useExactDay ? { date } : { period }),
       });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Could not save transaction.');
@@ -101,6 +123,32 @@ export function AddTransactionSheet({
       setCardError(addError instanceof Error ? addError.message : 'Could not add card.');
     } finally {
       setCardSaving(false);
+    }
+  };
+
+  const submitCategory = async () => {
+    setCategoryError(null);
+    if (!categoryName.trim()) {
+      setCategoryError('Give the category a name.');
+      return;
+    }
+
+    setCategorySaving(true);
+    try {
+      const category = await onAddCategory({
+        name: categoryName.trim(),
+        icon: categoryIcon.trim() || undefined,
+        color: categoryColor,
+      });
+      setCategoryId(category.id);
+      setAddingCategory(false);
+      setCategoryName('');
+      setCategoryIcon('💸');
+      setCategoryColor(CARD_COLORS[0]);
+    } catch (addError) {
+      setCategoryError(addError instanceof Error ? addError.message : 'Could not add category.');
+    } finally {
+      setCategorySaving(false);
     }
   };
 
@@ -159,7 +207,65 @@ export function AddTransactionSheet({
                 {category.name}
               </button>
             ))}
+            <button
+              type="button"
+              className="chip chip-add"
+              onClick={() => setAddingCategory((open) => !open)}
+              aria-expanded={addingCategory}
+            >
+              + Add category
+            </button>
           </div>
+
+          {addingCategory && (
+            <div className="card-add-form">
+              <input
+                type="text"
+                placeholder="Category name (e.g. Coffee)"
+                maxLength={40}
+                value={categoryName}
+                onChange={(event) => setCategoryName(event.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Icon (emoji)"
+                maxLength={8}
+                value={categoryIcon}
+                onChange={(event) => setCategoryIcon(event.target.value)}
+              />
+              <div className="swatch-row" role="group" aria-label="Category color">
+                {CARD_COLORS.map((color) => (
+                  <button
+                    type="button"
+                    key={color}
+                    className={`swatch ${categoryColor === color ? 'swatch-on' : ''}`}
+                    style={{ background: color }}
+                    aria-label={`Color ${color}`}
+                    aria-pressed={categoryColor === color}
+                    onClick={() => setCategoryColor(color)}
+                  />
+                ))}
+              </div>
+              {categoryError && <p className="sheet-error" role="alert">{categoryError}</p>}
+              <div className="card-add-actions">
+                <button
+                  type="button"
+                  className="tx-mini"
+                  onClick={() => setAddingCategory(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="tx-mini primary-mini"
+                  disabled={categorySaving}
+                  onClick={submitCategory}
+                >
+                  {categorySaving ? 'Adding…' : 'Add category'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="field">
@@ -238,8 +344,22 @@ export function AddTransactionSheet({
         </div>
 
         <label className="field">
-          <span>Date</span>
-          <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+          <span className="field-row">
+            <span>Date</span>
+            <label className="exact-day-toggle">
+              <input
+                type="checkbox"
+                checked={useExactDay}
+                onChange={(event) => setUseExactDay(event.target.checked)}
+              />
+              <span>Set exact day</span>
+            </label>
+          </span>
+          {useExactDay ? (
+            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+          ) : (
+            <p className="muted">Logged to {formatMonth(period.year, period.month)}</p>
+          )}
         </label>
 
         {error && <p className="sheet-error" role="alert">{error}</p>}

@@ -97,3 +97,72 @@ test('POST /api/reference/cards rejects a malformed color', async () => {
   assert.equal(response.body.error.code, 'VALIDATION_ERROR');
 });
 
+test('POST /api/reference/categories creates a category and returns it', async () => {
+  const { app, cookie } = freshApp();
+
+  const response = await request(app)
+    .post('/api/reference/categories')
+    .set('Cookie', cookie)
+    .send({ name: 'Coffee', icon: '☕', color: '#6f4e37' });
+
+  assert.equal(response.status, 201);
+  assert.deepEqual(response.body.category, {
+    id: 1,
+    name: 'Coffee',
+    icon: '☕',
+    color: '#6f4e37',
+  });
+
+  const listed = await request(app).get('/api/reference').set('Cookie', cookie);
+  assert.deepEqual(
+    listed.body.categories.map((category: { name: string }) => category.name),
+    ['Coffee'],
+  );
+});
+
+test('POST /api/reference/categories defaults icon and color', async () => {
+  const { app, cookie } = freshApp();
+
+  const response = await request(app)
+    .post('/api/reference/categories')
+    .set('Cookie', cookie)
+    .send({ name: 'Pets' });
+
+  assert.equal(response.status, 201);
+  assert.equal(response.body.category.icon, '💸');
+  assert.equal(response.body.category.color, '#888888');
+});
+
+test('POST /api/reference/categories rejects a duplicate name with 409', async () => {
+  const { app, cookie } = freshApp();
+
+  const first = await request(app)
+    .post('/api/reference/categories')
+    .set('Cookie', cookie)
+    .send({ name: 'Coffee' });
+  assert.equal(first.status, 201);
+
+  const duplicate = await request(app)
+    .post('/api/reference/categories')
+    .set('Cookie', cookie)
+    .send({ name: 'Coffee' });
+
+  assert.equal(duplicate.status, 409);
+  assert.equal(duplicate.body.error.code, 'CATEGORY_EXISTS');
+
+  const listed = await request(app).get('/api/reference').set('Cookie', cookie);
+  assert.equal(listed.body.categories.length, 1);
+});
+
+test('POST /api/reference/categories rejects a missing name', async () => {
+  const { app, cookie } = freshApp();
+
+  const response = await request(app)
+    .post('/api/reference/categories')
+    .set('Cookie', cookie)
+    .send({ icon: '☕' });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'VALIDATION_ERROR');
+});
+

@@ -7,7 +7,7 @@ import {
   type Category,
   type Transaction,
 } from '../api';
-import { formatCents, formatShortDate } from '../format';
+import { formatCents, formatTxDate } from '../format';
 
 const PAGE_SIZE = 50;
 
@@ -106,7 +106,7 @@ export function AllTransactionsWorkspace({ cards, categories, onClose, onChanged
                 <span className="tx-main">
                   <span className="tx-desc">{tx.description}</span>
                   <span className="tx-meta">
-                    {tx.categoryName} · {tx.cardName} · {formatShortDate(tx.date)}
+                    {tx.categoryName} · {tx.cardName} · {formatTxDate(tx.date, tx.dayKnown)}
                   </span>
                 </span>
                 <span className="tx-amount">{formatCents(tx.amountCents)}</span>

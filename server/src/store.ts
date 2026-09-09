@@ -26,6 +26,7 @@ export type TransactionRow = {
   cardId: number;
   cardName: string;
   date: string;
+  dayKnown: number;
   source: string;
   createdAt: string;
   updatedAt: string;
@@ -37,6 +38,7 @@ export type NewTransaction = {
   categoryId: number;
   cardId: number;
   date: string;
+  dayKnown: number;
 };
 
 const transactionSelect = `
@@ -50,6 +52,7 @@ const transactionSelect = `
     transactions.card_id AS cardId,
     cards.name AS cardName,
     transactions.date,
+    transactions.day_known AS dayKnown,
     transactions.source,
     transactions.created_at AS createdAt,
     transactions.updated_at AS updatedAt
@@ -72,6 +75,23 @@ export function listCategories(database: Database.Database): Array<{
   return database
     .prepare('SELECT id, name, icon, color FROM categories ORDER BY name, id')
     .all() as Array<{ id: number; name: string; icon: string; color: string }>;
+}
+
+// Categories are a shared/global lookup, so creation is not owner-scoped. The
+// name column is UNIQUE, so a duplicate throws a SQLITE_CONSTRAINT_UNIQUE error
+// the route turns into a friendly 409.
+export function createCategory(
+  database: Database.Database,
+  name: string,
+  icon: string,
+  color: string,
+): { id: number; name: string; icon: string; color: string } {
+  const result = database
+    .prepare('INSERT INTO categories (name, icon, color) VALUES (?, ?, ?)')
+    .run(name, icon, color);
+  return database
+    .prepare('SELECT id, name, icon, color FROM categories WHERE id = ?')
+    .get(Number(result.lastInsertRowid)) as { id: number; name: string; icon: string; color: string };
 }
 
 export type UserStore = ReturnType<typeof createUserStore>;
@@ -143,10 +163,10 @@ export function createUserStore(database: Database.Database, userId: number) {
     insertTransaction(input: NewTransaction): number {
       const result = database
         .prepare(
-          `INSERT INTO transactions (user_id, amount_cents, description, category_id, card_id, date)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO transactions (user_id, amount_cents, description, category_id, card_id, date, day_known)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(userId, input.amountCents, input.description, input.categoryId, input.cardId, input.date);
+        .run(userId, input.amountCents, input.description, input.categoryId, input.cardId, input.date, input.dayKnown);
       return Number(result.lastInsertRowid);
     },
     // IDOR-safe update: the WHERE includes user_id, so a cross-owner id changes

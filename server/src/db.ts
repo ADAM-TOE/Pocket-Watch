@@ -106,6 +106,9 @@ export function initSchema(database: Database.Database = db): void {
       category_id INTEGER NOT NULL REFERENCES categories(id),
       card_id INTEGER NOT NULL REFERENCES cards(id),
       date TEXT NOT NULL,
+      -- 1 = the day in the date column is real; 0 = only the month is known and
+      -- date holds the 1st of that month as a placeholder (see transactions.ts).
+      day_known INTEGER NOT NULL DEFAULT 1,
       source TEXT NOT NULL DEFAULT 'manual',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -220,6 +223,13 @@ export function initSchema(database: Database.Database = db): void {
     database.pragma('foreign_keys = OFF');
     database.transaction(() => migrateAddOwnerColumns(database))();
     database.pragma('foreign_keys = ON');
+  }
+
+  // Additive migration: existing databases predate the day_known flag. A plain
+  // ADD COLUMN with a constant default is safe here (no table rebuild needed);
+  // every existing row is treated as having a real, known day.
+  if (!hasColumn(database, 'transactions', 'day_known')) {
+    database.exec('ALTER TABLE transactions ADD COLUMN day_known INTEGER NOT NULL DEFAULT 1;');
   }
 
   database.exec(`

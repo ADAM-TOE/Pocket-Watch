@@ -41,3 +41,14 @@ export function formatShortDate(date: string): string {
   const [, month, day] = date.split('-').map(Number);
   return `${MONTHS[month - 1].slice(0, 3)} ${day}`;
 }
+
+export function formatMonthOnly(date: string): string {
+  const [year, month] = date.split('-').map(Number);
+  return `${MONTHS[month - 1].slice(0, 3)} ${year}`;
+}
+
+// Chooses the honest label: an exact day (dayKnown = 1) shows "Sep 8"; a
+// month-only entry (dayKnown = 0) shows "Aug 2026" instead of a fake day.
+export function formatTxDate(date: string, dayKnown: number): string {
+  return dayKnown === 0 ? formatMonthOnly(date) : formatShortDate(date);
+}

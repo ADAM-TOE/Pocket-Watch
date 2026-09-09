@@ -20,6 +20,7 @@ type SummaryTransaction = {
   cardId: number;
   cardName: string;
   date: string;
+  dayKnown: number;
 };
 
 type CategorySummary = {
@@ -116,6 +117,9 @@ function transactionsThroughDay(
   transactions: SummaryTransaction[],
   throughDay: number,
 ): SummaryTransaction[] {
+  // Month-only transactions are stored on the 1st (day_known = 0), so their day
+  // number (01) is <= any elapsed throughDay. That means they always fall inside
+  // the month-to-date window, keeping "this month so far" from being understated.
   return transactions.filter((transaction) => Number(transaction.date.slice(8, 10)) <= throughDay);
 }
 

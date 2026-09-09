@@ -17,18 +17,39 @@ const calendarDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
   );
 }, 'Date must be a real calendar date in YYYY-MM-DD format');
 
+const monthPeriod = z.object({
+  year: z.number().int().min(2000).max(2100),
+  month: z.number().int().min(1).max(12),
+}).strict();
+
 const createTransactionSchema = z.object({
   amountCents,
   description: z.string().trim().min(1).max(200),
   categoryId: referenceId,
   cardId: referenceId,
-  date: calendarDate,
-}).strict();
-
-const updateTransactionSchema = createTransactionSchema.partial().refine(
-  (value) => Object.keys(value).length > 0,
-  'At least one transaction field is required',
+  date: calendarDate.optional(),
+  period: monthPeriod.optional(),
+}).strict().refine(
+  (value) => (value.date === undefined) !== (value.period === undefined),
+  'Provide either an exact date or a month, but not both',
 );
+
+const updateTransactionSchema = z.object({
+  amountCents: amountCents.optional(),
+  description: z.string().trim().min(1).max(200).optional(),
+  categoryId: referenceId.optional(),
+  cardId: referenceId.optional(),
+  date: calendarDate.optional(),
+  period: monthPeriod.optional(),
+}).strict()
+  .refine(
+    (value) => Object.keys(value).length > 0,
+    'At least one transaction field is required',
+  )
+  .refine(
+    (value) => !(value.date !== undefined && value.period !== undefined),
+    'Provide either an exact date or a month, but not both',
+  );
 
 const idSchema = z.coerce.number().int().positive();
 
@@ -91,6 +112,20 @@ function periodStart(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}-01`;
 }
 
+// Normalizes the two accepted date shapes into what the DB stores. An exact day
+// keeps day_known = 1; a month-only entry is pinned to the 1st of that month with
+// day_known = 0, so every month/comparison query still works while the app
+// remembers the day is a placeholder rather than a real choice.
+function resolveDate(
+  input: { date?: string; period?: { year: number; month: number } },
+): { date: string; dayKnown: number } {
+  if (input.date !== undefined) {
+    return { date: input.date, dayKnown: 1 };
+  }
+  const { year, month } = input.period!;
+  return { date: periodStart(year, month), dayKnown: 0 };
+}
+
 function handleRouteError(response: Response, error: unknown): void {
   if (error instanceof RequestError) {
     response.status(error.status).json({
@@ -137,8 +172,16 @@ export function createTransactionsRouter(database: Database.Database): Router {
     try {
       const id = database.transaction((input: TransactionInput) => {
         assertReferencesExist(database, store, input.categoryId, input.cardId);
-        const newId = store.insertTransaction(input);
-        invalidateInsightCacheForDates(store, [input.date]);
+        const resolved = resolveDate(input);
+        const newId = store.insertTransaction({
+          amountCents: input.amountCents,
+          description: input.description,
+          categoryId: input.categoryId,
+          cardId: input.cardId,
+          date: resolved.date,
+          dayKnown: resolved.dayKnown,
+        });
+        invalidateInsightCacheForDates(store, [resolved.date]);
         return newId;
       })(parsed.data);
 
@@ -177,20 +220,29 @@ export function createTransactionsRouter(database: Database.Database): Router {
 
         const columns: string[] = [];
         const values: Array<string | number> = [];
-        const fieldMap: Array<[keyof TransactionUpdate, string]> = [
+        const scalarFields: Array<['amountCents' | 'description' | 'categoryId' | 'cardId', string]> = [
           ['amountCents', 'amount_cents'],
           ['description', 'description'],
           ['categoryId', 'category_id'],
           ['cardId', 'card_id'],
-          ['date', 'date'],
         ];
 
-        for (const [field, column] of fieldMap) {
+        for (const [field, column] of scalarFields) {
           const value = input[field];
           if (value !== undefined) {
             columns.push(`${column} = ?`);
             values.push(value);
           }
+        }
+
+        // A date edit resolves to both the stored day and its known/placeholder
+        // flag, so switching between an exact day and month-only stays consistent.
+        let newDate: string | undefined;
+        if (input.date !== undefined || input.period !== undefined) {
+          const resolved = resolveDate(input);
+          newDate = resolved.date;
+          columns.push('date = ?', 'day_known = ?');
+          values.push(resolved.date, resolved.dayKnown);
         }
 
         // IDOR-safe: the store's UPDATE includes user_id, so a cross-owner id
@@ -199,7 +251,7 @@ export function createTransactionsRouter(database: Database.Database): Router {
         if (changes !== 1) {
           throw new RequestError(404, 'TRANSACTION_NOT_FOUND', 'Transaction not found.');
         }
-        invalidateInsightCacheForDates(store, [existing.date, input.date ?? existing.date]);
+        invalidateInsightCacheForDates(store, [existing.date, newDate ?? existing.date]);
       })(id.data, update.data);
 
       response.json({ transaction: store.getTransaction(id.data) });

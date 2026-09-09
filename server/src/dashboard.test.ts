@@ -138,6 +138,29 @@ test('dashboard returns exact month-to-date totals, fair comparison, categories,
   }
 });
 
+test('month-only transactions count in the month-to-date total even early in the month', async () => {
+  // Today is the 5th; a month-only entry stored on the 1st must still be inside
+  // the elapsed-days window, so "this month so far" is never understated.
+  const context = setup('2026-08-05');
+  try {
+    const created = await request(context.app).post('/api/transactions').set('Cookie', context.cookie).send({
+      amountCents: 4200,
+      description: 'Month-only grocery run',
+      categoryId: context.groceriesId,
+      cardId: (context.database.prepare('SELECT id FROM cards LIMIT 1').get() as { id: number }).id,
+      period: { year: 2026, month: 8 },
+    });
+    assert.equal(created.status, 201);
+
+    const response = await request(context.app).get('/api/dashboard?year=2026&month=8').set('Cookie', context.cookie);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.totals.spentCents, 4200);
+    assert.equal(response.body.totals.currentComparisonSpentCents, 4200);
+  } finally {
+    context.database.close();
+  }
+});
+
 test('dashboard handles zero spending and a missing budget without invented values', async () => {
   const context = setup();
   try {

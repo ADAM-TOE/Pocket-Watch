@@ -27,6 +27,7 @@ export type DashboardSummary = {
     cardId: number;
     cardName: string;
     date: string;
+    dayKnown: number;
   }>;
   categories: Array<{
     categoryId: number;
@@ -58,7 +59,9 @@ export type NewTransaction = {
   description: string;
   categoryId: number;
   cardId: number;
-  date: string;
+  // Exactly one of these is sent: an exact `date`, or a month-only `period`.
+  date?: string;
+  period?: { year: number; month: number };
 };
 
 export type Transaction = {
@@ -70,6 +73,7 @@ export type Transaction = {
   cardId: number;
   cardName: string;
   date: string;
+  dayKnown: number;
   source: string;
   createdAt: string;
   updatedAt: string;
@@ -123,6 +127,23 @@ export async function createCard(input: NewCard): Promise<Card> {
   }
   const data = (await response.json()) as { card: Card };
   return data.card;
+}
+
+export type NewCategory = { name: string; icon?: string; color?: string };
+
+export async function createCategory(input: NewCategory): Promise<Category> {
+  const response = await fetch('/api/reference/categories', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    throw new Error(detail?.error?.message ?? `Could not add category (${response.status}).`);
+  }
+  const data = (await response.json()) as { category: Category };
+  return data.category;
 }
 
 export function fetchDashboard(year: number, month: number): Promise<DashboardSummary> {

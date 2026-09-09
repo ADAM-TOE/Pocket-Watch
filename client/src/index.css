@@ -719,6 +719,30 @@ input:focus-visible {
   border-color: var(--accent);
 }
 
+.field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.exact-day-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text-dim);
+  cursor: pointer;
+  text-transform: none;
+}
+
+.exact-day-toggle input {
+  width: auto;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .chip-row {
   display: flex;
   flex-wrap: wrap;

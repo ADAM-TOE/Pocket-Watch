@@ -308,3 +308,21 @@ Record every scope decision or direction change here (date — decision — why)
   unit-tested. Overrides the plan's "deep — by hand before a vetted library"
   default for this one component only; added 0 new npm-audit findings. Scope
   (§1–§6) unchanged.
+- 2026-09-08 — Optional transaction day (Entry UX, §2): the add form no longer
+  requires a day. A "Set exact day" toggle defaults OFF, logging the transaction
+  to the month currently shown in the stepper. Month-only rows are stored on the
+  1st with a new `day_known = 0` flag (explicit-unknown, not a silent sentinel),
+  so all month/category math is unchanged and the day=01 placeholder keeps them
+  inside the month-to-date "so far" window (never understated). The list/overview
+  show "Aug 2026" instead of a fake day. North star (§1) and Hard NOs (§5)
+  unchanged. Verified: new server unit tests (POST with period → dayKnown 0; with
+  date → 1; both/neither → 400; edit promotes to known), a dashboard month-to-date
+  test, full suite 55/55, and a live desktop + mobile UI click-through.
+- 2026-09-09 — Custom categories (Entry UX, §2): the fixed category list from §2
+  is now a starting set, not a hard cap — the user can add their own category from
+  the add-transaction sheet. New `POST /categories` endpoint validates name/icon/
+  color at the boundary and returns 409 CATEGORY_EXISTS on a duplicate name
+  (surfaced clearly instead of a 500). `categories` stays a shared/global lookup
+  table (consistent with the 2026-09-03 decision). North star (§1) and Hard NOs
+  (§5) unchanged. Verified: new server unit tests for create + duplicate handling
+  and full suite 59/59 green.
