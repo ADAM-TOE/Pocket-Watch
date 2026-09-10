@@ -114,6 +114,7 @@ input:focus-visible {
 
 /* ---------- Month stepper ---------- */
 .month-stepper {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -143,11 +144,96 @@ input:focus-visible {
 
 .month-label {
   min-width: 150px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
   text-align: center;
   font-family: Bahnschrift, 'Arial Narrow', sans-serif;
   font-weight: 600;
   font-size: 14px;
   font-variant-numeric: tabular-nums;
+  border-radius: 3px;
+}
+
+.month-label:hover {
+  background: var(--surface-2);
+}
+
+/* ---------- Month picker popover ---------- */
+.month-picker {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 25;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 10px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+}
+
+.month-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.month-picker-head button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.month-picker-head button:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.month-picker-year {
+  font-family: Bahnschrift, 'Arial Narrow', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.month-cell {
+  min-height: 40px;
+  padding: 10px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: Bahnschrift, 'Arial Narrow', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.month-cell:hover {
+  border-color: var(--border-strong);
+}
+
+.month-cell.is-current {
+  border-color: var(--accent);
+  background: rgba(99, 230, 165, 0.14);
+  color: var(--accent);
 }
 
 /* ---------- Insights ticker ---------- */
@@ -1081,6 +1167,44 @@ input:focus-visible {
   *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- Touch targets ----------
+   `pointer: coarse` matches devices whose primary input is a finger (phones,
+   tablets) rather than a precise mouse. On those, a fingertip needs ~44px of
+   room to hit reliably (Apple 44px / Material 48px / WCAG 2.5.8 floor 24px),
+   so we grow the small controls here without enlarging them on desktop. */
+@media (pointer: coarse) {
+  .month-stepper button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .icon-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .signout-button {
+    min-height: 44px;
+  }
+
+  /* .link-button also covers .status-edit ("Edit budget") and "View all →".
+     inline-flex lets min-height apply while keeping the text centered. */
+  .link-button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .month-picker-head button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .month-cell {
+    min-height: 44px;
   }
 }
 
