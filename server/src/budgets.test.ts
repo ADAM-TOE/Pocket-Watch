@@ -69,7 +69,7 @@ test('exact category allocations save and return spending-derived remaining amou
   }
 });
 
-test('under-allocation and over-allocation are rejected without changing saved data', async () => {
+test('under-allocation is allowed and over-allocation is rejected without changing saved data', async () => {
   const context = setup();
   try {
     const valid = {
@@ -84,21 +84,54 @@ test('under-allocation and over-allocation are rejected without changing saved d
       200,
     );
 
-    for (const amountCents of [149_999, 150_001]) {
-      const response = await request(context.app).put('/api/budgets/2026/8').set('Cookie', context.cookie).send({
-        ...valid,
-        allocations: [
-          valid.allocations[0],
-          { categoryId: context.groceriesId, amountCents },
-        ],
-      });
-      assert.equal(response.status, 400);
-      assert.equal(response.body.error.code, 'ALLOCATION_MISMATCH');
-    }
+    // Under-allocation (categories sum to less than the total) is now allowed:
+    // per-category budgets are optional and need not use the whole total.
+    const underAllocated = await request(context.app).put('/api/budgets/2026/8').set('Cookie', context.cookie).send({
+      ...valid,
+      allocations: [
+        valid.allocations[0],
+        { categoryId: context.groceriesId, amountCents: 149_999 },
+      ],
+    });
+    assert.equal(underAllocated.status, 200);
+    assert.equal(underAllocated.body.allocatedCents, 199_999);
+    assert.equal(underAllocated.body.totalBudgetCents, 200_000);
 
+    // Over-allocation (categories promise more than the total) is still rejected.
+    const overAllocated = await request(context.app).put('/api/budgets/2026/8').set('Cookie', context.cookie).send({
+      ...valid,
+      allocations: [
+        valid.allocations[0],
+        { categoryId: context.groceriesId, amountCents: 150_001 },
+      ],
+    });
+    assert.equal(overAllocated.status, 400);
+    assert.equal(overAllocated.body.error.code, 'ALLOCATION_EXCEEDS_TOTAL');
+
+    // The rejected save left the previous (under-allocated) data untouched.
     const read = await request(context.app).get('/api/budgets/2026/8').set('Cookie', context.cookie);
     assert.equal(read.body.totalBudgetCents, 200_000);
-    assert.equal(read.body.allocatedCents, 200_000);
+    assert.equal(read.body.allocatedCents, 199_999);
+  } finally {
+    context.database.close();
+  }
+});
+
+test('the total budget can be set on its own with no category allocations', async () => {
+  const context = setup();
+  try {
+    const saved = await request(context.app).put('/api/budgets/2026/8').set('Cookie', context.cookie).send({
+      totalBudgetCents: 250_000,
+      allocations: [],
+    });
+
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.totalBudgetCents, 250_000);
+    assert.equal(saved.body.allocatedCents, 0);
+    assert.deepEqual(saved.body.allocations, []);
+
+    const read = await request(context.app).get('/api/budgets/2026/8').set('Cookie', context.cookie);
+    assert.deepEqual(read.body, saved.body);
   } finally {
     context.database.close();
   }

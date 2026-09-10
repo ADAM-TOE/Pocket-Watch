@@ -324,5 +324,20 @@ Record every scope decision or direction change here (date — decision — why)
   color at the boundary and returns 409 CATEGORY_EXISTS on a duplicate name
   (surfaced clearly instead of a 500). `categories` stays a shared/global lookup
   table (consistent with the 2026-09-03 decision). North star (§1) and Hard NOs
-  (§5) unchanged. Verified: new server unit tests for create + duplicate handling
-  and full suite 59/59 green.
+  (§5) unchanged. Verified: new server unit tests for create + duplicate handling,
+  full suite green, and a live desktop + mobile UI click-through (create → auto-
+  select → use in a transaction).
+- 2026-09-09 — Editable budgets (Budget model, §2): added the client UI to adjust
+  the monthly budget (the server GET/PUT existed but had no UI). Decision: the
+  total budget is now editable on its own, and per-category limits are OPTIONAL
+  and need not sum to the total. This relaxes the server's PUT rule from
+  "allocations must EQUAL the total" (400 ALLOCATION_MISMATCH) to "allocations
+  must not EXCEED the total" (400 ALLOCATION_EXCEEDS_TOTAL); over-allocation is
+  still rejected. Rationale: the default state is a $2,000 total with no
+  allocations, so the old strict rule made simply changing the total impossible —
+  the relaxed rule fits the north-star "$2,000 total" knob while keeping category
+  budgets available. Math stays deterministic (§4); the LLM is untouched. North
+  star (§1) and Hard NOs (§5) unchanged. Verified: two updated/added budget unit
+  tests (under-allocation accepted; total-only save accepted; over-allocation →
+  400), full suite 60/60, and a live desktop + mobile UI click-through (total
+  $2,000→$2,500, partial per-category limits, persistence, over-allocation guard).

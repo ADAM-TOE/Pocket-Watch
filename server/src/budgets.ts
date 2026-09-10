@@ -102,11 +102,13 @@ export function createBudgetsRouter(database: Database.Database): Router {
       (sum, allocation) => sum + allocation.amountCents,
       0,
     );
-    if (allocatedCents !== budget.data.totalBudgetCents) {
+    // Category budgets are optional and need not use the whole total, but they
+    // must not promise more than the monthly budget holds.
+    if (allocatedCents > budget.data.totalBudgetCents) {
       response.status(400).json({
         error: {
-          code: 'ALLOCATION_MISMATCH',
-          message: 'Category allocations must equal the monthly budget.',
+          code: 'ALLOCATION_EXCEEDS_TOTAL',
+          message: 'Category budgets can’t add up to more than the monthly budget.',
         },
       });
       return;

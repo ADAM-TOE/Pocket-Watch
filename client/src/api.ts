@@ -200,6 +200,50 @@ export async function deleteTransaction(id: number): Promise<void> {
   }
 }
 
+// ---------- Budgets ----------
+
+export type BudgetAllocation = {
+  categoryId: number;
+  categoryName: string;
+  amountCents: number;
+  spentCents: number;
+  remainingCents: number;
+};
+
+export type BudgetDetail = {
+  period: { year: number; month: number };
+  totalBudgetCents: number | null;
+  allocatedCents: number;
+  allocations: BudgetAllocation[];
+};
+
+export type SaveBudget = {
+  totalBudgetCents: number;
+  allocations: Array<{ categoryId: number; amountCents: number }>;
+};
+
+export function fetchBudget(year: number, month: number): Promise<BudgetDetail> {
+  return getJson<BudgetDetail>(`/api/budgets/${year}/${month}`);
+}
+
+export async function saveBudget(
+  year: number,
+  month: number,
+  input: SaveBudget,
+): Promise<BudgetDetail> {
+  const response = await fetch(`/api/budgets/${year}/${month}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    throw new Error(detail?.error?.message ?? `Could not save budget (${response.status}).`);
+  }
+  return (await response.json()) as BudgetDetail;
+}
+
 // ---------- Auth ----------
 
 // Returns the signed-in user, or null when there is no valid session (401).

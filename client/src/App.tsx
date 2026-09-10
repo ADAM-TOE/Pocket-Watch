@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { MonthStepper } from './components/MonthStepper';
 import { AddTransactionSheet } from './components/AddTransactionSheet';
 import { AllTransactionsWorkspace } from './components/AllTransactionsWorkspace';
+import { BudgetSheet } from './components/BudgetSheet';
 import { CategoryDonut } from './components/CategoryDonut';
 import { AuthScreen } from './components/AuthScreen';
 import { useAuth } from './auth/AuthContext';
@@ -46,6 +47,7 @@ export default function App() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [reference, setReference] = useState<Reference | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [budgetOpen, setBudgetOpen] = useState(false);
   const [allOpen, setAllOpen] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [supportsPasskey, setSupportsPasskey] = useState(false);
@@ -209,7 +211,16 @@ export default function App() {
                 <span className="status-value">{formatDollars(summary.totals.spentCents)}</span>
               </div>
               <div className="status-cell">
-                <span className="status-label">{overspent ? 'Over budget' : 'Remaining'}</span>
+                <span className="status-label">
+                  {overspent ? 'Over budget' : 'Remaining'}
+                  <button
+                    type="button"
+                    className="link-button status-edit"
+                    onClick={() => setBudgetOpen(true)}
+                  >
+                    Edit budget
+                  </button>
+                </span>
                 <span className={`status-value ${overspent ? 'is-bad' : 'is-good'}`}>
                   {remainingCents === null ? '—' : formatDollars(Math.abs(remainingCents))}
                 </span>
@@ -328,6 +339,15 @@ export default function App() {
       >
         + Add transaction
       </button>
+
+      {budgetOpen && reference && (
+        <BudgetSheet
+          period={period}
+          categories={reference.categories}
+          onClose={() => setBudgetOpen(false)}
+          onSaved={() => loadPeriod(period.year, period.month)}
+        />
+      )}
 
       {sheetOpen && reference && (
         <AddTransactionSheet
