@@ -5,7 +5,7 @@ import request from 'supertest';
 import { createApp } from './app.js';
 import { initSchema, migrateToUserOne } from './db.js';
 import { createUser } from './auth.js';
-import { hashToken, generateSessionToken } from './sessions.js';
+import { hashToken, generateSessionToken, createSession, validateSession } from './sessions.js';
 
 const EMAIL = 'owner@example.com';
 const PASSWORD = 'correct horse battery staple';
@@ -34,11 +34,17 @@ test('login sets a cookie, /me returns the user, logout invalidates it', async (
     const login = await request(app).post('/api/auth/login').send({ email: EMAIL, password: PASSWORD });
     assert.equal(login.status, 200);
     assert.equal(login.body.user.email, EMAIL);
+    assert.match(String(login.headers['set-cookie']), /Max-Age=1800/);
     const { header, token } = extractCookie(login.headers['set-cookie']);
 
     const me = await request(app).get('/api/auth/me').set('Cookie', header);
     assert.equal(me.status, 200);
     assert.equal(me.body.user.email, EMAIL);
+    const session = database.prepare('SELECT expires_at AS expiresAt FROM sessions').get() as { expiresAt: string };
+    assert.equal(me.body.expiresAt, session.expiresAt);
+    assert.equal(me.headers['cache-control'], 'no-store');
+    const refreshed = await request(app).get('/api/auth/me').set('Cookie', header);
+    assert.equal(refreshed.body.expiresAt, me.body.expiresAt);
 
     // The DB stores only sha256(token), never the raw cookie value.
     const stored = database
@@ -52,6 +58,51 @@ test('login sets a cookie, /me returns the user, logout invalidates it', async (
 
     const afterLogout = await request(app).get('/api/auth/me').set('Cookie', header);
     assert.equal(afterLogout.status, 401);
+  } finally {
+    database.close();
+  }
+});
+
+test('sessions expire exactly 30 minutes after login despite activity', async (context) => {
+  const { database, userId } = await setup();
+  try {
+    const startedAt = Date.now();
+    context.mock.timers.enable({ apis: ['Date'], now: startedAt });
+    const token = createSession(database, userId);
+    const deadline = startedAt + 30 * 60 * 1000;
+    const stored = database.prepare('SELECT expires_at AS expiresAt FROM sessions').get() as { expiresAt: string };
+    assert.equal(stored.expiresAt, new Date(deadline).toISOString());
+
+    context.mock.timers.setTime(deadline - 1);
+    assert.deepEqual(validateSession(database, token), {
+      userId,
+      expiresAt: new Date(deadline).toISOString(),
+    });
+    context.mock.timers.setTime(deadline);
+    assert.equal(validateSession(database, token), null);
+    assert.equal((database.prepare('SELECT COUNT(*) AS count FROM sessions').get() as { count: number }).count, 0);
+  } finally {
+    database.close();
+  }
+});
+
+test('existing long-lived sessions also expire 30 minutes after creation', async () => {
+  const { database, app, userId } = await setup();
+  try {
+    const token = generateSessionToken();
+    const now = Date.now();
+    database.prepare(
+      `INSERT INTO sessions (user_id, token_hash, created_at, last_seen_at, expires_at)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run(
+      userId,
+      hashToken(token),
+      new Date(now - 30 * 60 * 1000).toISOString(),
+      new Date(now).toISOString(),
+      new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    );
+    const response = await request(app).get('/api/auth/me').set('Cookie', `pw_session=${token}`);
+    assert.equal(response.status, 401);
   } finally {
     database.close();
   }

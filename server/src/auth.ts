@@ -295,6 +295,7 @@ export function createAuthRouter(database: Database.Database): Router {
   });
 
   router.get('/me', (request, response) => {
+    response.set('Cache-Control', 'no-store');
     const token = readSessionCookie(request);
     const session = token ? validateSession(database, token) : null;
     if (!session) {
@@ -312,7 +313,7 @@ export function createAuthRouter(database: Database.Database): Router {
       });
       return;
     }
-    response.json({ user });
+    response.json({ user, expiresAt: session.expiresAt });
   });
 
   return router;

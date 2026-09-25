@@ -5,7 +5,7 @@ import type Database from 'better-sqlite3';
 //  - IDLE: log out after a stretch of no activity (renews on each request).
 //  - ABSOLUTE: a hard cap from login, even if the user stays active forever.
 export const SESSION_IDLE_MS = 1000 * 60 * 60 * 24 * 7; // 7 days idle
-export const SESSION_ABSOLUTE_MS = 1000 * 60 * 60 * 24 * 30; // 30 days absolute
+export const SESSION_ABSOLUTE_MS = 1000 * 60 * 30;
 
 // The cookie value is a 256-bit random string from a CSPRNG (crypto.randomBytes,
 // never Math.random). base64url keeps it cookie-safe (no '+', '/', or '=').
@@ -22,6 +22,7 @@ export function hashToken(token: string): string {
 type SessionRow = {
   id: number;
   userId: number;
+  createdAt: string;
   lastSeenAt: string;
   expiresAt: string;
 };
@@ -51,17 +52,21 @@ export function createSession(database: Database.Database, userId: number): stri
 export function validateSession(
   database: Database.Database,
   token: string,
-): { userId: number } | null {
+): { userId: number; expiresAt: string } | null {
   const row = database
     .prepare(
-      `SELECT id, user_id AS userId, last_seen_at AS lastSeenAt, expires_at AS expiresAt
+      `SELECT id, user_id AS userId, created_at AS createdAt, last_seen_at AS lastSeenAt, expires_at AS expiresAt
        FROM sessions WHERE token_hash = ?`,
     )
     .get(hashToken(token)) as SessionRow | undefined;
   if (!row) return null;
 
   const now = Date.now();
-  const absoluteExpired = now >= new Date(row.expiresAt).getTime();
+  const expiresAt = Math.min(
+    new Date(row.expiresAt).getTime(),
+    new Date(row.createdAt).getTime() + SESSION_ABSOLUTE_MS,
+  );
+  const absoluteExpired = now >= expiresAt;
   const idleExpired = now - new Date(row.lastSeenAt).getTime() >= SESSION_IDLE_MS;
   if (absoluteExpired || idleExpired) {
     database.prepare('DELETE FROM sessions WHERE id = ?').run(row.id);
@@ -71,7 +76,7 @@ export function validateSession(
   database
     .prepare('UPDATE sessions SET last_seen_at = ? WHERE id = ?')
     .run(new Date(now).toISOString(), row.id);
-  return { userId: row.userId };
+  return { userId: row.userId, expiresAt: new Date(expiresAt).toISOString() };
 }
 
 export function deleteSessionByToken(database: Database.Database, token: string): void {
