@@ -7,7 +7,7 @@ import { initSchema } from './db.js';
 import { createAuthedUser } from './test-helpers.js';
 
 function setup() {
-  const database = new Database(':memsory:');
+  const database = new Database(':memory:');
   database.pragma('foreign_keys = ON');
   initSchema(database);
   const { userId, cookie } = createAuthedUser(database);

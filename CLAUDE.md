@@ -281,6 +281,12 @@ executed and the expected result observed.
 
 Record every scope decision or direction change here (date — decision — why).
 
+- 2026-09-25 — Automatic sign-out: sessions end 30 minutes after sign-in,
+  regardless of activity, and return directly to sign-in without a warning.
+  The server enforces the deadline for new and existing sessions; the browser
+  uses that same deadline across reloads and checks it when a tab wakes up.
+  Unsaved edits may be lost. Verified: 62 server tests, both builds, and desktop
+  and mobile browser checks for expiry, reload, wake-up, and offline behavior.
 - 2026-08-17 — Project intent locked: awareness-first personal budgeting web app.
 - 2026-08-17 — Stack chosen: React/TS + Node/Express + SQLite, local-first → Azure B1.
 - 2026-08-17 — AI role fixed: math owns numbers, Azure OpenAI owns narrative.

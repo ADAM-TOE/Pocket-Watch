@@ -366,6 +366,7 @@ export default function App() {
         <AllTransactionsWorkspace
           cards={reference.cards}
           categories={reference.categories}
+          initialPeriod={period}
           onClose={() => setAllOpen(false)}
           onChanged={() => loadPeriod(period.year, period.month)}
         />

@@ -155,10 +155,12 @@ export function fetchInsights(year: number, month: number): Promise<{ insights: 
 }
 
 export function fetchTransactions(
+  year: number,
+  month: number,
   limit: number,
   offset: number,
 ): Promise<{ transactions: Transaction[]; pagination: { limit: number; offset: number } }> {
-  return getJson(`/api/transactions?limit=${limit}&offset=${offset}`);
+  return getJson(`/api/transactions?year=${year}&month=${month}&limit=${limit}&offset=${offset}`);
 }
 
 export async function createTransaction(input: NewTransaction): Promise<void> {
@@ -248,14 +250,13 @@ export async function saveBudget(
 
 // Returns the signed-in user, or null when there is no valid session (401).
 // Any other failure is a real error and is thrown.
-export async function fetchMe(): Promise<AuthUser | null> {
+export async function fetchMe(): Promise<{ user: AuthUser; expiresAt: string } | null> {
   const response = await fetch('/api/auth/me', { credentials: 'include' });
   if (response.status === 401) return null;
   if (!response.ok) {
     throw new ApiError(response.status, await errorMessage(response, 'Could not check sign-in status.'));
   }
-  const data = (await response.json()) as { user: AuthUser };
-  return data.user;
+  return response.json() as Promise<{ user: AuthUser; expiresAt: string }>;
 }
 
 // Shared POST helper for the auth endpoints that return { user } on success.

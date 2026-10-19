@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -29,19 +30,35 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const authVersion = useRef(0);
+
+  const clearAuth = useCallback(() => {
+    authVersion.current += 1;
+    setUserState(null);
+    setExpiresAt(null);
+    setStatus('anon');
+  }, []);
 
   const refresh = useCallback(async () => {
+    const version = ++authVersion.current;
     try {
       const me = await fetchMe();
-      setUserState(me);
-      setStatus(me ? 'authed' : 'anon');
+      if (version !== authVersion.current) return;
+      const deadline = me ? Date.parse(me.expiresAt) : NaN;
+      if (!me || !Number.isFinite(deadline) || deadline <= Date.now()) {
+        clearAuth();
+        return;
+      }
+      setUserState(me.user);
+      setExpiresAt(deadline);
+      setStatus('authed');
     } catch {
       // A network/server error while checking is treated as "not signed in" so
       // the app fails closed to the login screen rather than showing a shell.
-      setUserState(null);
-      setStatus('anon');
+      if (version === authVersion.current) clearAuth();
     }
-  }, []);
+  }, [clearAuth]);
 
   // Ask the server once on first load whether a session cookie is still valid.
   useEffect(() => {
@@ -50,19 +67,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setUser = useCallback((next: AuthUser) => {
     setUserState(next);
-    setStatus('authed');
-  }, []);
+    setExpiresAt(null);
+    setStatus('loading');
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (status !== 'authed' || expiresAt === null) return;
+    const checkExpiry = () => {
+      if (Date.now() >= expiresAt) clearAuth();
+    };
+    const timer = window.setTimeout(checkExpiry, Math.max(0, expiresAt - Date.now()));
+    window.addEventListener('focus', checkExpiry);
+    window.addEventListener('pageshow', checkExpiry);
+    document.addEventListener('visibilitychange', checkExpiry);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', checkExpiry);
+      window.removeEventListener('pageshow', checkExpiry);
+      document.removeEventListener('visibilitychange', checkExpiry);
+    };
+  }, [status, expiresAt, clearAuth]);
 
   const signOut = useCallback(async () => {
-    try {
-      await apiLogout();
-    } finally {
-      // Clear locally even if the network call failed — the cookie is one-sided
-      // useless without the server row, and the user asked to leave.
-      setUserState(null);
-      setStatus('anon');
-    }
-  }, []);
+    clearAuth();
+    await apiLogout();
+  }, [clearAuth]);
 
   return (
     <AuthContext.Provider value={{ user, status, setUser, refresh, signOut }}>

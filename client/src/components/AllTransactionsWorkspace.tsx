@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { MonthStepper } from './MonthStepper';
 import {
   deleteTransaction,
   fetchTransactions,
@@ -9,17 +10,27 @@ import {
 } from '../api';
 import { formatCents, formatTxDate } from '../format';
 
+type Period = { year: number; month: number };
+
 const PAGE_SIZE = 50;
 
 type Props = {
   cards: Card[];
   categories: Category[];
+  initialPeriod: Period;
   onClose: () => void;
   onChanged: () => void;
 };
 
-// A large scrollable workspace for browsing, editing, and deleting past transactions.
-export function AllTransactionsWorkspace({ cards, categories, onClose, onChanged }: Props) {
+// A large scrollable workspace for browsing, editing, and deleting one month's transactions.
+export function AllTransactionsWorkspace({
+  cards,
+  categories,
+  initialPeriod,
+  onClose,
+  onChanged,
+}: Props) {
+  const [viewed, setViewed] = useState<Period>(initialPeriod);
   const [rows, setRows] = useState<Transaction[]>([]);
   const [offset, setOffset] = useState(0);
   const [done, setDone] = useState(false);
@@ -28,28 +39,50 @@ export function AllTransactionsWorkspace({ cards, categories, onClose, onChanged
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const started = useRef(false);
+  // Bumped on every month change so a slow response for an old month is ignored.
+  const requestId = useRef(0);
 
   const loadMore = useCallback(async () => {
+    const myRequest = requestId.current;
     setLoading(true);
     setError(null);
     try {
-      const result = await fetchTransactions(PAGE_SIZE, offset);
+      const result = await fetchTransactions(viewed.year, viewed.month, PAGE_SIZE, offset);
+      if (myRequest !== requestId.current) return;
       setRows((previous) => [...previous, ...result.transactions]);
       setOffset((previous) => previous + result.transactions.length);
       if (result.transactions.length < PAGE_SIZE) setDone(true);
     } catch {
-      setError('Could not load transactions.');
+      if (myRequest === requestId.current) setError('Could not load transactions.');
     } finally {
-      setLoading(false);
+      if (myRequest === requestId.current) setLoading(false);
     }
-  }, [offset]);
+  }, [viewed, offset]);
+
+  const loadFirstPage = useCallback(async (period: Period) => {
+    const myRequest = ++requestId.current;
+    setRows([]);
+    setOffset(0);
+    setDone(false);
+    setConfirmingId(null);
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await fetchTransactions(period.year, period.month, PAGE_SIZE, 0);
+      if (myRequest !== requestId.current) return;
+      setRows(result.transactions);
+      setOffset(result.transactions.length);
+      if (result.transactions.length < PAGE_SIZE) setDone(true);
+    } catch {
+      if (myRequest === requestId.current) setError('Could not load transactions.');
+    } finally {
+      if (myRequest === requestId.current) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    loadMore();
-  }, [loadMore]);
+    loadFirstPage(viewed);
+  }, [viewed, loadFirstPage]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -95,9 +128,17 @@ export function AllTransactionsWorkspace({ cards, categories, onClose, onChanged
           </button>
         </div>
 
+        <div className="workspace-month">
+          <MonthStepper
+            year={viewed.year}
+            month={viewed.month}
+            onChange={(year, month) => setViewed({ year, month })}
+          />
+        </div>
+
         <div className="workspace-body">
           {rows.length === 0 && !loading && !error && (
-            <p className="muted">No transactions yet.</p>
+            <p className="muted">No transactions this month.</p>
           )}
 
           <ul className="tx-list">

@@ -683,6 +683,12 @@ input:focus-visible {
   font-size: 20px;
 }
 
+.workspace-month {
+  display: flex;
+  justify-content: center;
+  padding: 12px 20px 6px;
+}
+
 .workspace-body {
   flex: 1;
   overflow-y: auto;
